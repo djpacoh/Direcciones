@@ -1170,6 +1170,8 @@ function loadSessionData(sessionData) {
         displayOnMap(currentZones);
         updateAddToZoneSection();
         updateSessionControls();
+        updateZoneViewSelector();
+        updateMapClickModeButton();
         
         // Guardar como última sesión cargada
         localStorage.setItem(LAST_SESSION_KEY, JSON.stringify(sessionData));
@@ -1587,6 +1589,360 @@ function setupModalCloseListeners() {
 }
 
 // ==========================================
+// VISTA INDIVIDUAL DE ZONAS
+// ==========================================
+
+// Variables para el sistema de vista de zonas
+let mapClickMode = false;
+
+// Función para actualizar el selector de zona individual
+function updateZoneViewSelector() {
+    const zoneViewControls = document.getElementById('zone-view-controls');
+    const zoneViewSelector = document.getElementById('zone-view-selector');
+    const viewZoneBtn = document.getElementById('view-zone-btn');
+    
+    if (!zoneViewControls || !zoneViewSelector || !viewZoneBtn) return;
+    
+    // Mostrar controles solo si hay zonas disponibles
+    if (currentZones && currentZones.length > 0) {
+        zoneViewControls.style.display = 'flex';
+        
+        // Poblar selector de zonas
+        zoneViewSelector.innerHTML = '<option value="">Seleccionar zona...</option>';
+        currentZones.forEach((zone, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `Zona ${zone.id} (${zone.addresses.length} direcciones)`;
+            zoneViewSelector.appendChild(option);
+        });
+        
+        console.log('📋 Selector de zona individual actualizado');
+    } else {
+        zoneViewControls.style.display = 'none';
+        console.log('📋 Selector de zona individual oculto');
+    }
+}
+
+// Función para ver una zona específica
+function viewSpecificZone() {
+    const zoneViewSelector = document.getElementById('zone-view-selector');
+    
+    if (!zoneViewSelector || !currentZones) {
+        return;
+    }
+    
+    const selectedZoneIndex = parseInt(zoneViewSelector.value);
+    
+    if (isNaN(selectedZoneIndex) || !currentZones[selectedZoneIndex]) {
+        alert('❌ Por favor selecciona una zona válida.');
+        return;
+    }
+    
+    const selectedZone = currentZones[selectedZoneIndex];
+    
+    // Centrar mapa en la zona seleccionada
+    centerMapOnZone(selectedZone);
+    
+    console.log(`👁️ Vista centrada en Zona ${selectedZone.id}`);
+}
+
+// Función para centrar el mapa en una zona específica
+function centerMapOnZone(zone) {
+    if (!map || !zone || !zone.addresses || zone.addresses.length === 0) {
+        console.warn('No se puede centrar en la zona: datos inválidos');
+        return;
+    }
+    
+    // Crear grupo de marcadores para la zona
+    const zoneLatLngs = zone.addresses.map(addr => [addr.lat, addr.lng]);
+    
+    if (zoneLatLngs.length === 1) {
+        // Si solo hay una dirección, centrar con zoom fijo
+        map.setView(zoneLatLngs[0], 16);
+    } else {
+        // Si hay múltiples direcciones, ajustar vista para mostrar todas
+        const bounds = L.latLngBounds(zoneLatLngs);
+        map.fitBounds(bounds, { 
+            padding: [20, 20],
+            maxZoom: 16
+        });
+    }
+    
+    // Resaltar temporalmente la zona seleccionada
+    highlightZoneTemporarily(zone);
+}
+
+// Función para resaltar temporalmente una zona
+function highlightZoneTemporarily(zone) {
+    if (!zone.layer) return;
+    
+    // Guardar estilo original
+    const originalStyle = {
+        color: zone.layer.options.color,
+        fillColor: zone.layer.options.fillColor,
+        weight: zone.layer.options.weight
+    };
+    
+    // Aplicar estilo de resaltado
+    zone.layer.setStyle({
+        color: '#FFD700',
+        fillColor: '#FFD700',
+        weight: 4
+    });
+    
+    // Restaurar estilo original después de 2 segundos
+    setTimeout(() => {
+        if (zone.layer) {
+            zone.layer.setStyle(originalStyle);
+        }
+    }, 2000);
+}
+
+// ==========================================
+// MODO AGREGAR PUNTOS EN MAPA
+// ==========================================
+
+// Función para alternar modo de agregar puntos
+function toggleMapClickMode() {
+    const toggleBtn = document.getElementById('toggle-map-click-btn');
+    
+    if (!toggleBtn || !map) return;
+    
+    // Verificar que haya zonas disponibles antes de activar el modo
+    if (!mapClickMode && (!currentZones || currentZones.length === 0)) {
+        alert('❌ No hay zonas disponibles. Crea primero algunas zonas procesando un archivo con direcciones.');
+        return;
+    }
+    
+    mapClickMode = !mapClickMode;
+    
+    if (mapClickMode) {
+        // Activar modo agregar puntos
+        toggleBtn.classList.add('active');
+        toggleBtn.textContent = '✋ Desactivar Modo';
+        
+        // Cambiar cursor del mapa
+        map.getContainer().style.cursor = 'crosshair';
+        
+        // Agregar event listener de clic al mapa
+        map.on('click', onMapClickAddPoint);
+        
+        console.log('➕ Modo agregar puntos ACTIVADO - Haz clic en el mapa');
+        
+        // Mostrar mensaje temporal
+        showTemporaryMessage('➕ Modo Agregar Puntos ACTIVADO\nHaz clic en cualquier lugar del mapa para agregar una dirección', 3000);
+        
+    } else {
+        // Desactivar modo agregar puntos
+        toggleBtn.classList.remove('active');
+        toggleBtn.textContent = '➕ Modo Agregar Puntos';
+        
+        // Restaurar cursor normal
+        map.getContainer().style.cursor = '';
+        
+        // Remover event listener de clic al mapa
+        map.off('click', onMapClickAddPoint);
+        
+        console.log('✋ Modo agregar puntos DESACTIVADO');
+        
+        showTemporaryMessage('✋ Modo Agregar Puntos DESACTIVADO', 1500);
+    }
+}
+
+// Función que maneja el clic en el mapa para agregar puntos
+async function onMapClickAddPoint(e) {
+    if (!mapClickMode) return;
+    
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+    
+    console.log(`🗺️ Clic en mapa: ${lat}, ${lng}`);
+    
+    try {
+        // Mostrar indicador de proceso
+        showProgress(0, 'Obteniendo dirección del punto...');
+        
+        // Hacer geocodificación inversa
+        const address = await reverseGeocode(lat, lng);
+        
+        if (!address) {
+            hideProgress();
+            alert('❌ No se pudo obtener la dirección de este punto. Inténtalo en otro lugar.');
+            return;
+        }
+        
+        // Encontrar la zona más cercana
+        const nearestZone = findNearestZone(lat, lng);
+        
+        if (!nearestZone) {
+            hideProgress();
+            alert('❌ No hay zonas disponibles. Crea primero algunas zonas procesando un archivo.');
+            return;
+        }
+        
+        // Crear objeto de dirección
+        const newAddress = {
+            original: address.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            formatted: address.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            lat: lat,
+            lng: lng,
+            confidence: address.importance || 0.5,
+            manual: true // Marcar como añadida manualmente
+        };
+        
+        // Agregar a la zona más cercana
+        nearestZone.addresses.push(newAddress);
+        
+        // Recalcular centro de la zona
+        nearestZone.center = calculateZoneCenter(nearestZone.addresses);
+        
+        console.log(`➕ Punto agregado a Zona ${nearestZone.id}: ${newAddress.formatted}`);
+        
+        // Actualizar visualizaciones
+        updateZoneDisplay();
+        displayOnMapPreservingZoom(currentZones);
+        updateAddToZoneSection();
+        updateSessionControls();
+        updateZoneViewSelector();
+        
+        hideProgress();
+        
+        // Mostrar confirmación
+        showTemporaryMessage(
+            `✅ ¡Punto agregado exitosamente!\n\n` +
+            `📍 Dirección: ${newAddress.formatted.substring(0, 50)}${newAddress.formatted.length > 50 ? '...' : ''}\n` +
+            `📦 Zona ${nearestZone.id}: ${nearestZone.addresses.length} direcciones totales`,
+            4000
+        );
+        
+    } catch (error) {
+        hideProgress();
+        console.error('Error al agregar punto desde mapa:', error);
+        alert('❌ Error al procesar el punto seleccionado. Inténtalo de nuevo.');
+    }
+}
+
+// Función de geocodificación inversa usando Nominatim
+async function reverseGeocode(lat, lng) {
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+            {
+                headers: {
+                    'User-Agent': 'OrdenarDirecciones/1.0'
+                }
+            }
+        );
+        
+        if (!response.ok) {
+            throw new Error('Error en la respuesta de geocodificación');
+        }
+        
+        const data = await response.json();
+        return data;
+        
+    } catch (error) {
+        console.error('Error en geocodificación inversa:', error);
+        return null;
+    }
+}
+
+// Función para encontrar la zona más cercana a un punto
+function findNearestZone(lat, lng) {
+    if (!currentZones || currentZones.length === 0) {
+        return null;
+    }
+    
+    let nearestZone = null;
+    let minDistance = Infinity;
+    
+    currentZones.forEach(zone => {
+        if (zone.center) {
+            const distance = calculateDistance(lat, lng, zone.center.lat, zone.center.lng);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestZone = zone;
+            }
+        }
+    });
+    
+    console.log(`🎯 Zona más cercana: Zona ${nearestZone?.id} a ${minDistance.toFixed(2)}km`);
+    return nearestZone;
+}
+
+// Función para mostrar mensaje temporal en pantalla
+function showTemporaryMessage(message, duration = 3000) {
+    // Crear elemento de mensaje si no existe
+    let messageElement = document.getElementById('temporary-message');
+    if (!messageElement) {
+        messageElement = document.createElement('div');
+        messageElement.id = 'temporary-message';
+        messageElement.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10001;
+            max-width: 300px;
+            font-weight: bold;
+            white-space: pre-line;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        `;
+        document.body.appendChild(messageElement);
+    }
+    
+    // Mostrar mensaje
+    messageElement.textContent = message;
+    messageElement.style.opacity = '1';
+    messageElement.style.transform = 'translateX(0)';
+    
+    // Ocultar después del tiempo especificado
+    setTimeout(() => {
+        messageElement.style.opacity = '0';
+        messageElement.style.transform = 'translateX(100%)';
+    }, duration);
+}
+
+// Función para actualizar estado del botón modo agregar puntos
+function updateMapClickModeButton() {
+    const toggleBtn = document.getElementById('toggle-map-click-btn');
+    
+    if (!toggleBtn) return;
+    
+    // Si no hay zonas disponibles y el modo está activo, desactivarlo
+    if (mapClickMode && (!currentZones || currentZones.length === 0)) {
+        // Desactivar modo automáticamente
+        mapClickMode = false;
+        toggleBtn.classList.remove('active');
+        toggleBtn.textContent = '➕ Modo Agregar Puntos';
+        
+        // Restaurar cursor normal
+        if (map) {
+            map.getContainer().style.cursor = '';
+            map.off('click', onMapClickAddPoint);
+        }
+        
+        console.log('✋ Modo agregar puntos desactivado automáticamente - no hay zonas');
+        showTemporaryMessage('✋ Modo Agregar Puntos desactivado\nNo hay zonas disponibles', 2000);
+    }
+    
+    // Habilitar/deshabilitar botón según disponibilidad de zonas
+    if (!currentZones || currentZones.length === 0) {
+        toggleBtn.disabled = true;
+        toggleBtn.title = 'Necesitas crear zonas primero';
+    } else {
+        toggleBtn.disabled = false;
+        toggleBtn.title = 'Activar modo para agregar puntos haciendo clic en el mapa';
+    }
+}
+
+// ==========================================
 // GESTIÓN MANUAL DE DIRECCIONES
 // ==========================================
 
@@ -1665,6 +2021,7 @@ async function addAddressToExistingZone() {
         displayOnMapPreservingZoom(currentZones);
         updateAddToZoneSection(); // Actualizar contador de direcciones
         updateSessionControls(); // Actualizar controles de sesión
+        updateZoneViewSelector(); // Actualizar selector de vista de zona
         
         // Limpiar campos
         addressInput.value = '';
@@ -1739,6 +2096,26 @@ function attachEventListeners() {
     
     // Event listeners para modales de sesiones
     setupSessionModalListeners();
+    
+    // Event listeners para vista individual de zonas
+    const zoneViewSelector = document.getElementById('zone-view-selector');
+    const viewZoneBtn = document.getElementById('view-zone-btn');
+    
+    if (zoneViewSelector && viewZoneBtn) {
+        // Habilitar/deshabilitar botón según selección
+        zoneViewSelector.addEventListener('change', function() {
+            viewZoneBtn.disabled = !this.value;
+        });
+        
+        // Ver zona seleccionada
+        viewZoneBtn.addEventListener('click', viewSpecificZone);
+    }
+    
+    // Event listener para modo agregar puntos
+    const toggleMapClickBtn = document.getElementById('toggle-map-click-btn');
+    if (toggleMapClickBtn) {
+        toggleMapClickBtn.addEventListener('click', toggleMapClickMode);
+    }
     
     // Botón de información - manejado directamente en HTML
 }
@@ -2894,6 +3271,8 @@ function displayZones(zones) {
     updateZoneDisplay(zones);
     updateAddToZoneSection(); // Actualizar sección de agregar direcciones
     updateSessionControls(); // Actualizar controles de sesión
+    updateZoneViewSelector(); // Actualizar selector de vista de zona
+    updateMapClickModeButton(); // Actualizar botón modo agregar puntos
 }
 
 function updateZoneDisplay(zones = currentZones) {
