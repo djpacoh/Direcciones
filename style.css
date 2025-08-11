@@ -1023,11 +1023,20 @@ hr {
 #multi-select-controls {
     background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
     border: 2px solid #2196F3;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 15px;
-    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
-    animation: slideDown 0.4s ease-out;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15);
+    animation: slideDown 0.3s ease-out;
+    transition: all 0.3s ease;
+}
+
+#multi-select-controls.minimized {
+    padding: 10px 15px;
+}
+
+#multi-select-controls.minimized .multi-select-actions {
+    display: none;
 }
 
 @keyframes slideDown {
@@ -1045,13 +1054,35 @@ hr {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
+}
+
+.multi-select-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .multi-select-header h3 {
     margin: 0;
     color: #1976D2;
-    font-size: 18px;
+    font-size: 16px;
+}
+
+.minimize-btn {
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(25, 118, 210, 0.3);
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #1976D2;
+    transition: all 0.2s;
+}
+
+.minimize-btn:hover {
+    background: rgba(255, 255, 255, 0.6);
+    border-color: #1976D2;
 }
 
 .multi-select-info {
@@ -1180,5 +1211,78 @@ hr {
     .multi-select-btn {
         padding: 10px;
         font-size: 12px;
+    }
+}
+
+/* --- GESTIÓN MANUAL DE DIRECCIONES --- */
+#add-to-zone-section {
+    background: linear-gradient(135deg, #f3e5f5, #e8f5e8);
+    border: 2px solid #4CAF50;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+#add-to-zone-section h3 {
+    margin: 0 0 15px 0;
+    color: #2e7d32;
+}
+
+.add-to-zone-controls {
+    display: grid;
+    grid-template-columns: 1fr 2fr auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.zone-select {
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.zone-select:focus {
+    border-color: #4CAF50;
+    outline: none;
+}
+
+.action-button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+.add-button {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+}
+
+.add-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #45a049, #3d8b40);
+    transform: translateY(-1px);
+}
+
+.add-button:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@media (max-width: 768px) {
+    .add-to-zone-controls {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .action-button {
+        justify-self: stretch;
     }
 }

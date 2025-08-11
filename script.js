@@ -703,6 +703,12 @@ function setupMultiSelectControls() {
     if (fitAllBtn) {
         fitAllBtn.addEventListener('click', fitAllZonesInView);
     }
+    
+    // Botón para minimizar panel de selección múltiple
+    const minimizeBtn = document.getElementById('minimize-multi-select');
+    if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', toggleMinimizeMultiSelect);
+    }
 }
 
 function toggleMultiSelectMode() {
@@ -1017,6 +1023,121 @@ function fitAllZonesInView() {
     }
 }
 
+// Función para minimizar/expandir el panel de selección múltiple
+function toggleMinimizeMultiSelect() {
+    const panel = document.getElementById('multi-select-controls');
+    const btn = document.getElementById('minimize-multi-select');
+    
+    if (panel.classList.contains('minimized')) {
+        // Expandir
+        panel.classList.remove('minimized');
+        btn.textContent = '➖';
+        btn.title = 'Minimizar panel';
+    } else {
+        // Minimizar
+        panel.classList.add('minimized');
+        btn.textContent = '➕';
+        btn.title = 'Expandir panel';
+    }
+}
+
+// ==========================================
+// GESTIÓN MANUAL DE DIRECCIONES
+// ==========================================
+
+// Función para mostrar/actualizar la sección de agregar a zona
+function updateAddToZoneSection() {
+    const addToZoneSection = document.getElementById('add-to-zone-section');
+    const zoneSelector = document.getElementById('zone-selector');
+    
+    if (!addToZoneSection || !zoneSelector) return;
+    
+    // Mostrar sección solo si hay zonas disponibles
+    if (currentZones && currentZones.length > 0) {
+        addToZoneSection.style.display = 'block';
+        
+        // Poblar selector de zonas
+        zoneSelector.innerHTML = '<option value="">Seleccionar zona...</option>';
+        currentZones.forEach((zone, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `Zona ${zone.id} (${zone.addresses.length} direcciones)`;
+            zoneSelector.appendChild(option);
+        });
+        
+        // Asegurar que el reconocimiento de voz funcione para el nuevo campo
+        const micButton = document.querySelector('[data-target="new-zone-address"]');
+        if (micButton) {
+            setupVoiceRecognitionForElement(micButton);
+        }
+    } else {
+        addToZoneSection.style.display = 'none';
+    }
+}
+
+// Función para agregar dirección a zona existente
+async function addAddressToExistingZone() {
+    const zoneSelector = document.getElementById('zone-selector');
+    const addressInput = document.getElementById('new-zone-address');
+    
+    if (!zoneSelector || !addressInput) return;
+    
+    const selectedZoneIndex = parseInt(zoneSelector.value);
+    const addressText = addressInput.value.trim();
+    
+    if (isNaN(selectedZoneIndex) || !addressText) {
+        alert('❌ Por favor selecciona una zona e ingresa una dirección.');
+        return;
+    }
+    
+    if (!currentZones || !currentZones[selectedZoneIndex]) {
+        alert('❌ Error: Zona no encontrada.');
+        return;
+    }
+    
+    try {
+        // Geocodificar la dirección
+        showProgress(0, 'Geocodificando dirección...');
+        
+        const geocodedAddress = await geocodeAddress(addressText);
+        if (!geocodedAddress) {
+            hideProgress();
+            alert('❌ No se pudo geocodificar la dirección. Verifica que sea correcta.');
+            return;
+        }
+        
+        // Agregar a la zona seleccionada
+        const targetZone = currentZones[selectedZoneIndex];
+        targetZone.addresses.push(geocodedAddress);
+        
+        // Recalcular centro de la zona
+        targetZone.center = calculateZoneCenter(targetZone.addresses);
+        
+        console.log(`➕ Dirección agregada a Zona ${targetZone.id}: ${addressText}`);
+        
+        // Actualizar visualizaciones
+        updateZoneDisplay();
+        displayOnMapPreservingZoom(currentZones);
+        updateAddToZoneSection(); // Actualizar contador de direcciones
+        
+        // Limpiar campos
+        addressInput.value = '';
+        zoneSelector.value = '';
+        
+        hideProgress();
+        
+        // Mostrar confirmación
+        alert(`✅ ¡Dirección agregada exitosamente!\n\n` +
+              `📍 Dirección: ${addressText}\n` +
+              `📦 Zona ${targetZone.id}: ${targetZone.addresses.length} direcciones totales`);
+        
+    } catch (error) {
+        hideProgress();
+        console.error('Error al agregar dirección:', error);
+        alert('❌ Error al agregar la dirección. Inténtalo de nuevo.');
+    }
+}
+
 // ==========================================
 // EVENT LISTENERS
 // ==========================================
@@ -1046,6 +1167,12 @@ function attachEventListeners() {
     
     if (elements.toggleMap) {
         elements.toggleMap.addEventListener('click', toggleMapVisibility);
+    }
+    
+    // Event listener para agregar dirección a zona existente
+    const addToZoneBtn = document.getElementById('add-to-zone-btn');
+    if (addToZoneBtn) {
+        addToZoneBtn.addEventListener('click', addAddressToExistingZone);
     }
     
     // Botón de información - manejado directamente en HTML
@@ -2200,6 +2327,7 @@ function optimizeRoute(addresses) {
 
 function displayZones(zones) {
     updateZoneDisplay(zones);
+    updateAddToZoneSection(); // Actualizar sección de agregar direcciones
 }
 
 function updateZoneDisplay(zones = currentZones) {

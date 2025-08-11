@@ -82,7 +82,27 @@
     <hr>
 
     <div id="manual-container">
-        <h2>Ruta Optimizada Manual</h2>
+        <h2>Gestión Manual de Direcciones</h2>
+        
+        <!-- Sección para agregar a zonas existentes -->
+        <div id="add-to-zone-section" style="display: none;">
+            <h3>➕ Agregar Dirección a Zona Existente</h3>
+            <div class="add-to-zone-controls">
+                <select id="zone-selector" class="zone-select">
+                    <option value="">Seleccionar zona...</option>
+                </select>
+                <div class="address-input-wrapper">
+                    <input type="text" id="new-zone-address" placeholder="Dirección a agregar">
+                    <button class="mic-button" data-target="new-zone-address">🎤</button>
+                </div>
+                <button id="add-to-zone-btn" class="action-button add-button">➕ Agregar a Zona</button>
+            </div>
+        </div>
+        
+        <hr style="margin: 20px 0;">
+        
+        <!-- Sección original para crear ruta optimizada -->
+        <h3>🛣️ Crear Ruta Optimizada Manual</h3>
         <div class="address-input-wrapper">
             <input type="text" id="base-address" placeholder="Dirección base">
             <button class="mic-button" data-target="base-address">🎤</button>
@@ -100,23 +120,26 @@
     <!-- Controles de selección múltiple -->
     <div id="multi-select-controls" style="display: none;">
         <div class="multi-select-header">
-            <h3>🎯 Selección Múltiple Activa</h3>
+            <div class="multi-select-title">
+                <h3>🎯 Selección Múltiple</h3>
+                <button id="minimize-multi-select" class="minimize-btn" title="Minimizar panel">➖</button>
+            </div>
             <div class="multi-select-info">
-                <span id="selected-count">0</span> direcciones seleccionadas
+                <span id="selected-count">0</span> seleccionadas
             </div>
         </div>
-        <div class="multi-select-actions">
+        <div id="multi-select-actions" class="multi-select-actions">
             <button id="create-new-zone-btn" class="multi-select-btn create-zone-btn" disabled>
-                ➕ Crear Nueva Zona
+                ➕ Nueva Zona
             </button>
             <button id="move-to-zone-btn" class="multi-select-btn move-zone-btn" disabled>
-                🔄 Mover a Zona Existente
+                🔄 Mover a Zona
             </button>
             <button id="clear-selection-btn" class="multi-select-btn clear-btn">
-                🚫 Limpiar Selección
+                🚫 Limpiar
             </button>
             <button id="exit-multi-select-btn" class="multi-select-btn exit-btn">
-                ❌ Salir del Modo Selección
+                ❌ Salir
             </button>
         </div>
     </div>
