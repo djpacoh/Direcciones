@@ -261,7 +261,7 @@ function openZoneEditor(zoneIndex) {
             <div><strong>Color:</strong> <span style="color: ${zoneColor}; font-weight: bold;">${zoneColor}</span></div>
         </div>
         <p style="font-size: 12px; color: #666; margin-top: 10px;">
-            💡 Arrastra las direcciones para reordenar, usa los botones para editar o eliminar
+            💡 Arrastra las direcciones para reordenar, usa los botones para editar, mover a otra zona, o eliminar
         </p>
     `;
     
@@ -329,6 +329,9 @@ function renderZoneAddressList() {
             <div class="address-actions">
                 <button class="address-action-btn edit-address-btn" onclick="editAddress(${index})" title="Editar dirección">
                     ✏️
+                </button>
+                <button class="address-action-btn move-address-btn" onclick="moveAddressToZone(${index})" title="Mover a otra zona">
+                    🔄
                 </button>
                 <button class="address-action-btn delete-address-btn" onclick="deleteAddress(${index})" title="Eliminar dirección">
                     🗑️
@@ -435,6 +438,200 @@ window.deleteAddress = function(addressIndex) {
         );
     }
 };
+
+window.moveAddressToZone = function(addressIndex) {
+    if (!currentEditingZone || !currentEditingZone.addresses[addressIndex] || !currentZones) return;
+    
+    const address = currentEditingZone.addresses[addressIndex];
+    
+    // Verificar que hay más de una zona disponible
+    if (currentZones.length <= 1) {
+        alert('❌ No hay otras zonas disponibles para mover la dirección.');
+        return;
+    }
+    
+    // Crear lista de opciones de zonas (excluyendo la zona actual)
+    const zoneOptions = currentZones
+        .map((zone, index) => ({
+            index,
+            zone,
+            isCurrent: index === selectedZoneIndex
+        }))
+        .filter(item => !item.isCurrent);
+    
+    // Crear el diálogo de selección
+    const zoneSelector = createZoneSelector(zoneOptions, address.address);
+    
+    // Mostrar el diálogo
+    showZoneSelectorDialog(zoneSelector, (targetZoneIndex) => {
+        moveAddressBetweenZones(addressIndex, selectedZoneIndex, targetZoneIndex, address);
+    });
+};
+
+function createZoneSelector(zoneOptions, addressText) {
+    const colors = [
+        '#FF0000', '#0000FF', '#00FF00', '#FF00FF', '#FFA500',
+        '#800080', '#00FFFF', '#FFFF00', '#8B4513', '#FFC0CB'
+    ];
+    
+    let optionsHtml = '';
+    zoneOptions.forEach(({ index, zone }) => {
+        const color = colors[index % colors.length];
+        optionsHtml += `
+            <div class="zone-option" data-zone-index="${index}">
+                <div class="zone-option-header">
+                    <span class="zone-color-indicator" style="background-color: ${color};"></span>
+                    <span class="zone-title">Zona ${zone.id}</span>
+                    <span class="zone-address-count">${zone.addresses.length} direcciones</span>
+                </div>
+                <div class="zone-option-details">
+                    Centro: ${zone.center.lat.toFixed(4)}, ${zone.center.lng.toFixed(4)}
+                </div>
+            </div>
+        `;
+    });
+    
+    return `
+        <div class="zone-selector-content">
+            <div class="zone-selector-header">
+                <h3>📍 Seleccionar zona de destino</h3>
+                <p class="address-to-move">Moviendo: <strong>"${addressText}"</strong></p>
+            </div>
+            <div class="zone-options-container">
+                ${optionsHtml}
+            </div>
+            <div class="zone-selector-actions">
+                <button id="cancel-zone-move" class="cancel-button">❌ Cancelar</button>
+                <button id="confirm-zone-move" class="confirm-button" disabled>✅ Mover Dirección</button>
+            </div>
+        </div>
+    `;
+}
+
+function showZoneSelectorDialog(selectorHtml, onConfirm) {
+    // Crear el overlay del diálogo
+    const overlay = document.createElement('div');
+    overlay.className = 'zone-selector-overlay';
+    overlay.innerHTML = `
+        <div class="zone-selector-modal">
+            ${selectorHtml}
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    let selectedZoneIndex = null;
+    
+    // Event listeners para selección de zona
+    const zoneOptions = overlay.querySelectorAll('.zone-option');
+    const confirmButton = overlay.querySelector('#confirm-zone-move');
+    const cancelButton = overlay.querySelector('#cancel-zone-move');
+    
+    zoneOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Limpiar selecciones anteriores
+            zoneOptions.forEach(opt => opt.classList.remove('selected'));
+            
+            // Marcar como seleccionada
+            this.classList.add('selected');
+            selectedZoneIndex = parseInt(this.dataset.zoneIndex);
+            confirmButton.disabled = false;
+        });
+    });
+    
+    // Event listener para confirmar
+    confirmButton.addEventListener('click', function() {
+        if (selectedZoneIndex !== null) {
+            onConfirm(selectedZoneIndex);
+            document.body.removeChild(overlay);
+        }
+    });
+    
+    // Event listener para cancelar
+    cancelButton.addEventListener('click', function() {
+        document.body.removeChild(overlay);
+    });
+    
+    // Cerrar con clic fuera del modal
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+            document.body.removeChild(overlay);
+        }
+    });
+    
+    // Cerrar con Escape
+    const escapeHandler = function(e) {
+        if (e.key === 'Escape') {
+            document.removeEventListener('keydown', escapeHandler);
+            if (document.body.contains(overlay)) {
+                document.body.removeChild(overlay);
+            }
+        }
+    };
+    document.addEventListener('keydown', escapeHandler);
+}
+
+function moveAddressBetweenZones(addressIndex, sourceZoneIndex, targetZoneIndex, address) {
+    // Verificar que los índices son válidos
+    if (!currentZones[sourceZoneIndex] || !currentZones[targetZoneIndex]) {
+        alert('❌ Error: Zona no encontrada.');
+        return;
+    }
+    
+    const sourceZone = currentZones[sourceZoneIndex];
+    const targetZone = currentZones[targetZoneIndex];
+    
+    // Verificar que la dirección existe en la zona de origen
+    if (!sourceZone.addresses[addressIndex]) {
+        alert('❌ Error: Dirección no encontrada.');
+        return;
+    }
+    
+    // Verificar que no es la única dirección en la zona (igual que en deleteAddress)
+    if (sourceZone.addresses.length <= 1) {
+        alert('❌ No se puede mover la única dirección de la zona. La zona debe tener al menos una dirección.');
+        return;
+    }
+    
+    // Confirmar la acción
+    const confirmMessage = `¿Confirmar el movimiento?\n\n` +
+                          `📤 Desde: Zona ${sourceZone.id} (${sourceZone.addresses.length} direcciones)\n` +
+                          `📥 Hacia: Zona ${targetZone.id} (${targetZone.addresses.length} direcciones)\n\n` +
+                          `📍 Dirección: "${address.address}"`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    // Realizar el movimiento
+    const movedAddress = sourceZone.addresses.splice(addressIndex, 1)[0];
+    targetZone.addresses.push(movedAddress);
+    
+    // Recalcular centros de ambas zonas
+    sourceZone.center = calculateZoneCenter(sourceZone.addresses);
+    targetZone.center = calculateZoneCenter(targetZone.addresses);
+    
+    console.log(`🔄 Dirección movida de Zona ${sourceZone.id} a Zona ${targetZone.id}: "${address.address}"`);
+    
+    // Actualizar la zona actual en edición (sourceZone)
+    currentEditingZone = sourceZone;
+    
+    // Re-renderizar la lista
+    renderZoneAddressList();
+    
+    // Actualizar estadísticas del editor
+    elements.zoneEditorStats.innerHTML = elements.zoneEditorStats.innerHTML.replace(
+        /Direcciones:<\/strong> \d+/,
+        `Direcciones:</strong> ${sourceZone.addresses.length}`
+    );
+    
+    // Mostrar confirmación
+    alert(`✅ Dirección movida exitosamente!\n\n` +
+          `📤 Zona ${sourceZone.id}: ${sourceZone.addresses.length} direcciones\n` +
+          `📥 Zona ${targetZone.id}: ${targetZone.addresses.length} direcciones`);
+    
+    // Nota: Los cambios se aplicarán cuando se guarde la zona con saveZoneChanges()
+}
 
 function saveZoneChanges() {
     if (!currentEditingZone || selectedZoneIndex === null) return;
