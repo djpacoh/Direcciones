@@ -95,7 +95,38 @@
         </div>
         <button id="add-address">Añadir otra dirección</button>
         <button id="sort-addresses">Ordenar</button>
-        <button id="toggle-map">Minimizar/Maximizar Mapa</button>
+    </div>
+
+    <!-- Controles de selección múltiple -->
+    <div id="multi-select-controls" style="display: none;">
+        <div class="multi-select-header">
+            <h3>🎯 Selección Múltiple Activa</h3>
+            <div class="multi-select-info">
+                <span id="selected-count">0</span> direcciones seleccionadas
+            </div>
+        </div>
+        <div class="multi-select-actions">
+            <button id="create-new-zone-btn" class="multi-select-btn create-zone-btn" disabled>
+                ➕ Crear Nueva Zona
+            </button>
+            <button id="move-to-zone-btn" class="multi-select-btn move-zone-btn" disabled>
+                🔄 Mover a Zona Existente
+            </button>
+            <button id="clear-selection-btn" class="multi-select-btn clear-btn">
+                🚫 Limpiar Selección
+            </button>
+            <button id="exit-multi-select-btn" class="multi-select-btn exit-btn">
+                ❌ Salir del Modo Selección
+            </button>
+        </div>
+    </div>
+
+    <!-- Botón para activar selección múltiple -->
+    <div id="map-controls">
+        <button id="toggle-multi-select-btn" class="map-control-btn">
+            🎯 Activar Selección Múltiple
+        </button>
+        <button id="toggle-map" class="map-control-btn">Minimizar/Maximizar Mapa</button>
     </div>
 
     <div id="map"></div>

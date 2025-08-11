@@ -11,6 +11,11 @@ let currentZones = null; // Para almacenar las zonas actuales
 let zoneMarkers = []; // Para almacenar los marcadores por zona
 let catalunyaPostalCodes = new Map(); // Mapa CP -> Municipio de Catalunya
 
+// Variables para selección múltiple
+let multiSelectMode = false; // Si está activado el modo de selección múltiple
+let selectedAddresses = []; // Direcciones seleccionadas {zoneIndex, addressIndex, address, marker}
+let multiSelectControls = null; // Elemento de controles de selección múltiple
+
 // Elementos del DOM
 const elements = {
     // Excel functionality
@@ -68,6 +73,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     attachEventListeners();
     setupVoiceRecognition();
     setupZoneEditor();
+    setupMultiSelectControls();
 });
 
 // ==========================================  
@@ -654,6 +660,324 @@ function saveZoneChanges() {
 
 // Hacer la función openZoneEditor accesible globalmente para los botones HTML
 window.openZoneEditor = openZoneEditor;
+
+// ==========================================
+// SELECCIÓN MÚLTIPLE EN EL MAPA
+// ==========================================
+
+function setupMultiSelectControls() {
+    multiSelectControls = document.getElementById('multi-select-controls');
+    
+    if (!multiSelectControls) return;
+    
+    // Obtener elementos de control
+    const toggleBtn = document.getElementById('toggle-multi-select-btn');
+    const exitBtn = document.getElementById('exit-multi-select-btn');
+    const clearBtn = document.getElementById('clear-selection-btn');
+    const createZoneBtn = document.getElementById('create-new-zone-btn');
+    const moveToZoneBtn = document.getElementById('move-to-zone-btn');
+    
+    // Event listeners
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', toggleMultiSelectMode);
+    }
+    
+    if (exitBtn) {
+        exitBtn.addEventListener('click', exitMultiSelectMode);
+    }
+    
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearSelection);
+    }
+    
+    if (createZoneBtn) {
+        createZoneBtn.addEventListener('click', createNewZoneFromSelection);
+    }
+    
+    if (moveToZoneBtn) {
+        moveToZoneBtn.addEventListener('click', moveSelectionToExistingZone);
+    }
+}
+
+function toggleMultiSelectMode() {
+    multiSelectMode = !multiSelectMode;
+    
+    const toggleBtn = document.getElementById('toggle-multi-select-btn');
+    
+    if (multiSelectMode) {
+        // Activar modo selección múltiple
+        toggleBtn.textContent = '🎯 Modo Selección Activo';
+        toggleBtn.style.backgroundColor = '#ff6b6b';
+        multiSelectControls.style.display = 'block';
+        
+        // Cambiar cursor y clase CSS para indicar modo de selección
+        const mapElement = document.getElementById('map');
+        mapElement.style.cursor = 'crosshair';
+        mapElement.classList.add('multi-select-mode');
+        
+        console.log('🎯 Modo selección múltiple ACTIVADO');
+    } else {
+        exitMultiSelectMode();
+    }
+}
+
+function exitMultiSelectMode() {
+    multiSelectMode = false;
+    
+    const toggleBtn = document.getElementById('toggle-multi-select-btn');
+    toggleBtn.textContent = '🎯 Activar Selección Múltiple';
+    toggleBtn.style.backgroundColor = '#4CAF50';
+    
+    // Ocultar controles y limpiar selección
+    multiSelectControls.style.display = 'none';
+    clearSelection();
+    
+    // Restaurar cursor normal y quitar clase CSS
+    const mapElement = document.getElementById('map');
+    mapElement.style.cursor = '';
+    mapElement.classList.remove('multi-select-mode');
+    
+    console.log('❌ Modo selección múltiple DESACTIVADO');
+}
+
+function clearSelection() {
+    // Limpiar selección visual de todos los marcadores
+    selectedAddresses.forEach(item => {
+        if (item.marker && item.marker._icon) {
+            item.marker._icon.style.filter = '';
+            item.marker._icon.style.transform = '';
+            item.marker._icon.style.zIndex = '';
+        }
+    });
+    
+    selectedAddresses = [];
+    updateSelectionCounter();
+    updateMultiSelectButtons();
+    
+    console.log('🚫 Selección limpiada');
+}
+
+function updateSelectionCounter() {
+    const countElement = document.getElementById('selected-count');
+    if (countElement) {
+        countElement.textContent = selectedAddresses.length;
+    }
+}
+
+function updateMultiSelectButtons() {
+    const createBtn = document.getElementById('create-new-zone-btn');
+    const moveBtn = document.getElementById('move-to-zone-btn');
+    
+    const hasSelection = selectedAddresses.length > 0;
+    const hasMultiple = selectedAddresses.length > 1;
+    
+    if (createBtn) {
+        createBtn.disabled = !hasSelection;
+    }
+    
+    if (moveBtn) {
+        moveBtn.disabled = !hasSelection;
+    }
+}
+
+function handleMarkerClick(zoneIndex, addressIndex, address, marker) {
+    if (!multiSelectMode) return;
+    
+    const selectionItem = {
+        zoneIndex,
+        addressIndex,
+        address,
+        marker
+    };
+    
+    // Verificar si ya está seleccionado
+    const existingIndex = selectedAddresses.findIndex(item => 
+        item.zoneIndex === zoneIndex && item.addressIndex === addressIndex
+    );
+    
+    if (existingIndex >= 0) {
+        // Deseleccionar
+        selectedAddresses.splice(existingIndex, 1);
+        
+        // Quitar estilo de selección
+        if (marker._icon) {
+            marker._icon.style.filter = '';
+            marker._icon.style.transform = '';
+            marker._icon.style.zIndex = '';
+        }
+        
+        console.log(`❌ Deseleccionado: ${address.address}`);
+    } else {
+        // Seleccionar
+        selectedAddresses.push(selectionItem);
+        
+        // Aplicar estilo de selección
+        if (marker._icon) {
+            marker._icon.style.filter = 'brightness(1.5) saturate(1.5)';
+            marker._icon.style.transform = 'scale(1.2)';
+            marker._icon.style.zIndex = '10000';
+        }
+        
+        console.log(`✅ Seleccionado: ${address.address}`);
+    }
+    
+    updateSelectionCounter();
+    updateMultiSelectButtons();
+}
+
+function createNewZoneFromSelection() {
+    if (selectedAddresses.length === 0) {
+        alert('❌ No hay direcciones seleccionadas.');
+        return;
+    }
+    
+    const confirmMessage = `¿Crear nueva zona con ${selectedAddresses.length} direcciones seleccionadas?\n\n` +
+                          `Las direcciones se moverán de sus zonas actuales a la nueva zona.`;
+    
+    if (!confirm(confirmMessage)) return;
+    
+    // Crear nueva zona
+    const newZoneId = Math.max(...currentZones.map(z => z.id)) + 1;
+    const newZone = {
+        id: newZoneId,
+        addresses: [],
+        center: null
+    };
+    
+    // Recopilar direcciones y removerlas de zonas originales
+    selectedAddresses.forEach(item => {
+        const originalZone = currentZones[item.zoneIndex];
+        
+        // Verificar que no sea la única dirección de la zona
+        if (originalZone.addresses.length <= 1) {
+            alert(`❌ Error: No se puede mover la única dirección de la Zona ${originalZone.id}.\nLa zona debe mantener al menos una dirección.`);
+            return;
+        }
+        
+        // Encontrar y remover la dirección de la zona original
+        const addressIndex = originalZone.addresses.findIndex(addr => 
+            addr.address === item.address.address && 
+            addr.lat === item.address.lat && 
+            addr.lng === item.address.lng
+        );
+        
+        if (addressIndex >= 0) {
+            const movedAddress = originalZone.addresses.splice(addressIndex, 1)[0];
+            newZone.addresses.push(movedAddress);
+            
+            // Recalcular centro de zona original
+            originalZone.center = calculateZoneCenter(originalZone.addresses);
+        }
+    });
+    
+    // Verificar que se movieron direcciones
+    if (newZone.addresses.length === 0) {
+        alert('❌ No se pudieron mover las direcciones. Verifica que no dejes zonas vacías.');
+        return;
+    }
+    
+    // Calcular centro de nueva zona
+    newZone.center = calculateZoneCenter(newZone.addresses);
+    
+    // Agregar nueva zona
+    currentZones.push(newZone);
+    
+    console.log(`➕ Nueva zona creada: Zona ${newZoneId} con ${newZone.addresses.length} direcciones`);
+    
+    // Actualizar visualizaciones
+    updateZoneDisplay();
+    displayOnMap(currentZones);
+    
+    // Limpiar selección y salir del modo
+    exitMultiSelectMode();
+    
+    alert(`✅ ¡Nueva zona creada exitosamente!\n\n` +
+          `Zona ${newZoneId}: ${newZone.addresses.length} direcciones\n\n` +
+          `Se han actualizado también las zonas originales.`);
+}
+
+function moveSelectionToExistingZone() {
+    if (selectedAddresses.length === 0) {
+        alert('❌ No hay direcciones seleccionadas.');
+        return;
+    }
+    
+    // Crear lista de zonas disponibles
+    const availableZones = currentZones.map((zone, index) => ({ 
+        index, 
+        zone 
+    }));
+    
+    // Crear el diálogo de selección (reutilizar función existente)
+    const zoneSelector = createZoneSelector(availableZones, `${selectedAddresses.length} direcciones`);
+    
+    // Mostrar el diálogo
+    showZoneSelectorDialog(zoneSelector, (targetZoneIndex) => {
+        moveMultipleAddressesToZone(targetZoneIndex);
+    });
+}
+
+function moveMultipleAddressesToZone(targetZoneIndex) {
+    if (!currentZones[targetZoneIndex]) {
+        alert('❌ Error: Zona de destino no encontrada.');
+        return;
+    }
+    
+    const targetZone = currentZones[targetZoneIndex];
+    let movedCount = 0;
+    const affectedZones = new Set();
+    
+    // Procesar cada dirección seleccionada
+    selectedAddresses.forEach(item => {
+        const sourceZone = currentZones[item.zoneIndex];
+        
+        // Verificar que no sea la única dirección de la zona
+        if (sourceZone.addresses.length <= 1) {
+            console.warn(`⚠️ Saltando dirección de Zona ${sourceZone.id} (única dirección)`);
+            return;
+        }
+        
+        // Encontrar y remover la dirección de la zona original
+        const addressIndex = sourceZone.addresses.findIndex(addr => 
+            addr.address === item.address.address && 
+            addr.lat === item.address.lat && 
+            addr.lng === item.address.lng
+        );
+        
+        if (addressIndex >= 0) {
+            const movedAddress = sourceZone.addresses.splice(addressIndex, 1)[0];
+            targetZone.addresses.push(movedAddress);
+            movedCount++;
+            affectedZones.add(item.zoneIndex);
+        }
+    });
+    
+    if (movedCount === 0) {
+        alert('❌ No se pudieron mover las direcciones. Verifica que no dejes zonas vacías.');
+        return;
+    }
+    
+    // Recalcular centros de zonas afectadas
+    affectedZones.forEach(zoneIndex => {
+        currentZones[zoneIndex].center = calculateZoneCenter(currentZones[zoneIndex].addresses);
+    });
+    
+    // Recalcular centro de zona destino
+    targetZone.center = calculateZoneCenter(targetZone.addresses);
+    
+    console.log(`🔄 Movidas ${movedCount} direcciones a Zona ${targetZone.id}`);
+    
+    // Actualizar visualizaciones
+    updateZoneDisplay();
+    displayOnMap(currentZones);
+    
+    // Limpiar selección y salir del modo
+    exitMultiSelectMode();
+    
+    alert(`✅ ¡Direcciones movidas exitosamente!\n\n` +
+          `${movedCount} direcciones movidas a Zona ${targetZone.id}\n` +
+          `Total en zona destino: ${targetZone.addresses.length} direcciones`);
+}
 
 // ==========================================
 // EVENT LISTENERS
@@ -1984,10 +2308,18 @@ function displayOnMap(zones) {
                 title: `Zona ${zone.id}: ${addr.address} - Click para editar zona`
             }).addTo(map);
             
-            // Agregar evento de click para abrir editor de zona
+            // Agregar evento de click para abrir editor de zona o selección múltiple
             marker.on('click', function(e) {
                 console.log(`🖱️ Click en marcador de Zona ${zone.id}`);
-                openZoneEditor(zoneIndex);
+                
+                // Si estamos en modo selección múltiple, manejar selección
+                if (multiSelectMode) {
+                    e.originalEvent.stopPropagation();
+                    handleMarkerClick(zoneIndex, addrIndex, addr, marker);
+                } else {
+                    // Modo normal: abrir editor de zona
+                    openZoneEditor(zoneIndex);
+                }
             });
             
             // Popup con información detallada y fuente de precisión
