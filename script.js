@@ -74,6 +74,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupVoiceRecognition();
     setupZoneEditor();
     setupMultiSelectControls();
+    
+    // Intentar cargar la última sesión guardada
+    setTimeout(() => {
+        tryLoadLastSession();
+    }, 1000); // Delay para asegurar que todo esté inicializado
 });
 
 // ==========================================  
@@ -658,8 +663,10 @@ function saveZoneChanges() {
     alert(`✅ Cambios guardados exitosamente para la Zona ${currentEditingZone.id}`);
 }
 
-// Hacer la función openZoneEditor accesible globalmente para los botones HTML
+// Hacer las funciones accesibles globalmente para los botones HTML
 window.openZoneEditor = openZoneEditor;
+window.loadSelectedSession = loadSelectedSession;
+window.deleteSelectedSession = deleteSelectedSession;
 
 // ==========================================
 // SELECCIÓN MÚLTIPLE EN EL MAPA
@@ -1042,6 +1049,544 @@ function toggleMinimizeMultiSelect() {
 }
 
 // ==========================================
+// GESTIÓN DE SESIONES
+// ==========================================
+
+// Clave para localStorage
+const SESSIONS_STORAGE_KEY = 'ordenar_direcciones_sessions';
+const LAST_SESSION_KEY = 'ordenar_direcciones_last_session';
+
+// Variables globales para el sistema de sesiones
+let selectedSessionToLoad = null;
+
+// Función para mostrar/ocultar controles de sesión
+function updateSessionControls() {
+    const sessionControls = document.getElementById('session-controls');
+    
+    if (!sessionControls) return;
+    
+    // Mostrar controles solo si hay zonas disponibles
+    if (currentZones && currentZones.length > 0) {
+        sessionControls.style.display = 'block';
+        console.log('📋 Controles de sesión habilitados');
+    } else {
+        sessionControls.style.display = 'none';
+        console.log('📋 Controles de sesión deshabilitados');
+    }
+}
+
+// Función para crear objeto de sesión
+function createSessionData(sessionName) {
+    if (!currentZones) {
+        throw new Error('No hay zonas para guardar');
+    }
+    
+    const totalAddresses = currentZones.reduce((sum, zone) => sum + zone.addresses.length, 0);
+    
+    return {
+        id: Date.now(),
+        name: sessionName || `Sesión ${new Date().toLocaleString()}`,
+        timestamp: Date.now(),
+        date: new Date().toLocaleString(),
+        zones: JSON.parse(JSON.stringify(currentZones)), // Deep copy
+        totalZones: currentZones.length,
+        totalAddresses: totalAddresses,
+        version: '1.0'
+    };
+}
+
+// Función para obtener todas las sesiones guardadas
+function getSavedSessions() {
+    try {
+        const sessionsData = localStorage.getItem(SESSIONS_STORAGE_KEY);
+        return sessionsData ? JSON.parse(sessionsData) : [];
+    } catch (error) {
+        console.error('Error al cargar sesiones guardadas:', error);
+        return [];
+    }
+}
+
+// Función para guardar sesión en localStorage
+function saveSessionToStorage(sessionData) {
+    try {
+        const existingSessions = getSavedSessions();
+        
+        // Verificar si ya existe una sesión con el mismo nombre
+        const existingIndex = existingSessions.findIndex(s => s.name === sessionData.name);
+        
+        if (existingIndex >= 0) {
+            // Sobrescribir sesión existente
+            existingSessions[existingIndex] = sessionData;
+            console.log(`📝 Sesión "${sessionData.name}" sobrescrita`);
+        } else {
+            // Agregar nueva sesión
+            existingSessions.push(sessionData);
+            console.log(`💾 Nueva sesión "${sessionData.name}" guardada`);
+        }
+        
+        // Mantener solo las últimas 50 sesiones para evitar llenar localStorage
+        const limitedSessions = existingSessions
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .slice(0, 50);
+        
+        localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(limitedSessions));
+        
+        // Guardar como última sesión
+        localStorage.setItem(LAST_SESSION_KEY, JSON.stringify(sessionData));
+        
+        return true;
+    } catch (error) {
+        console.error('Error al guardar sesión:', error);
+        throw new Error('Error al guardar la sesión en almacenamiento local');
+    }
+}
+
+// Función para eliminar sesión del almacenamiento
+function deleteSessionFromStorage(sessionId) {
+    try {
+        const sessions = getSavedSessions();
+        const updatedSessions = sessions.filter(s => s.id !== sessionId);
+        localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updatedSessions));
+        console.log(`🗑️ Sesión eliminada: ID ${sessionId}`);
+        return true;
+    } catch (error) {
+        console.error('Error al eliminar sesión:', error);
+        return false;
+    }
+}
+
+// Función para cargar sesión y aplicarla
+function loadSessionData(sessionData) {
+    try {
+        if (!sessionData || !sessionData.zones) {
+            throw new Error('Datos de sesión inválidos');
+        }
+        
+        // Restaurar zonas
+        currentZones = JSON.parse(JSON.stringify(sessionData.zones)); // Deep copy
+        
+        // Actualizar visualizaciones
+        updateZoneDisplay();
+        displayOnMap(currentZones);
+        updateAddToZoneSection();
+        updateSessionControls();
+        
+        // Guardar como última sesión cargada
+        localStorage.setItem(LAST_SESSION_KEY, JSON.stringify(sessionData));
+        
+        console.log(`📂 Sesión cargada: "${sessionData.name}" - ${sessionData.totalZones} zonas, ${sessionData.totalAddresses} direcciones`);
+        
+        return true;
+    } catch (error) {
+        console.error('Error al cargar sesión:', error);
+        throw new Error('Error al aplicar los datos de la sesión');
+    }
+}
+
+// Función para obtener estadísticas de almacenamiento
+function getStorageStats() {
+    try {
+        const sessions = getSavedSessions();
+        const totalSessions = sessions.length;
+        
+        // Calcular tamaño aproximado
+        const sessionsString = localStorage.getItem(SESSIONS_STORAGE_KEY) || '';
+        const sizeInBytes = new Blob([sessionsString]).size;
+        const sizeInKB = Math.round(sizeInBytes / 1024 * 10) / 10;
+        
+        return {
+            totalSessions,
+            storageSize: `${sizeInKB} KB`
+        };
+    } catch (error) {
+        console.error('Error al calcular estadísticas:', error);
+        return {
+            totalSessions: 0,
+            storageSize: '0 KB'
+        };
+    }
+}
+
+// Función para intentar recuperar última sesión al inicio
+function tryLoadLastSession() {
+    try {
+        const lastSessionData = localStorage.getItem(LAST_SESSION_KEY);
+        if (lastSessionData) {
+            const sessionData = JSON.parse(lastSessionData);
+            console.log(`🔄 Última sesión encontrada: "${sessionData.name}"`);
+            // Solo auto-cargar si no hay zonas actuales
+            if (!currentZones || currentZones.length === 0) {
+                loadSessionData(sessionData);
+                console.log('🔄 Última sesión cargada automáticamente');
+            }
+        }
+    } catch (error) {
+        console.error('Error al cargar última sesión:', error);
+        // Limpiar datos corruptos
+        localStorage.removeItem(LAST_SESSION_KEY);
+    }
+}
+
+// ==========================================
+// MODALES DE GESTIÓN DE SESIONES
+// ==========================================
+
+// Función para abrir modal de guardar sesión
+function openSaveSessionModal() {
+    if (!currentZones || currentZones.length === 0) {
+        alert('❌ No hay zonas para guardar. Procesa primero un archivo con direcciones.');
+        return;
+    }
+    
+    const modal = document.getElementById('save-session-modal');
+    const sessionNameInput = document.getElementById('session-name');
+    
+    // Actualizar estadísticas actuales
+    updateCurrentSessionStats();
+    
+    // Generar nombre por defecto
+    const defaultName = `Sesión ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+    sessionNameInput.value = defaultName;
+    
+    modal.style.display = 'flex';
+    sessionNameInput.focus();
+    sessionNameInput.select();
+}
+
+// Función para actualizar estadísticas de sesión actual
+function updateCurrentSessionStats() {
+    if (!currentZones) return;
+    
+    const totalAddresses = currentZones.reduce((sum, zone) => sum + zone.addresses.length, 0);
+    
+    document.getElementById('current-zones-count').textContent = currentZones.length;
+    document.getElementById('current-addresses-count').textContent = totalAddresses;
+    document.getElementById('current-date').textContent = new Date().toLocaleString();
+}
+
+// Función para guardar sesión desde modal
+function saveSessionFromModal() {
+    const sessionNameInput = document.getElementById('session-name');
+    const sessionName = sessionNameInput.value.trim();
+    
+    if (!sessionName) {
+        alert('❌ Por favor ingresa un nombre para la sesión.');
+        sessionNameInput.focus();
+        return;
+    }
+    
+    try {
+        const sessionData = createSessionData(sessionName);
+        saveSessionToStorage(sessionData);
+        
+        closeSaveSessionModal();
+        
+        alert(`✅ ¡Sesión guardada exitosamente!\n\n` +
+              `📝 Nombre: ${sessionData.name}\n` +
+              `🗂️ Zonas: ${sessionData.totalZones}\n` +
+              `📍 Direcciones: ${sessionData.totalAddresses}\n\n` +
+              `La sesión se cargará automáticamente la próxima vez que abras la aplicación.`);
+        
+    } catch (error) {
+        console.error('Error al guardar sesión:', error);
+        alert('❌ Error al guardar la sesión: ' + error.message);
+    }
+}
+
+// Función para abrir modal de cargar sesión
+function openLoadSessionModal() {
+    const modal = document.getElementById('load-session-modal');
+    
+    updateSessionsList();
+    modal.style.display = 'flex';
+}
+
+// Función para actualizar lista de sesiones
+function updateSessionsList() {
+    const sessionsList = document.getElementById('sessions-list');
+    const sessions = getSavedSessions();
+    
+    if (sessions.length === 0) {
+        sessionsList.innerHTML = '<p class="no-sessions">No hay sesiones guardadas</p>';
+        return;
+    }
+    
+    sessionsList.innerHTML = sessions
+        .sort((a, b) => b.timestamp - a.timestamp) // Más recientes primero
+        .map(session => `
+            <div class="session-item" data-session-id="${session.id}">
+                <div class="session-item-header">
+                    <h4 class="session-item-name">${session.name}</h4>
+                    <span class="session-item-date">${session.date}</span>
+                </div>
+                <div class="session-item-stats">
+                    <span>🗂️ ${session.totalZones} zonas</span>
+                    <span>📍 ${session.totalAddresses} direcciones</span>
+                </div>
+                <div class="session-item-actions">
+                    <button class="session-item-btn load-session-btn" onclick="loadSelectedSession(${session.id})">
+                        📂 Cargar
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    
+    // Agregar event listeners para selección
+    sessionsList.querySelectorAll('.session-item').forEach(item => {
+        item.addEventListener('click', function() {
+            // Remover selección anterior
+            sessionsList.querySelectorAll('.session-item').forEach(i => i.classList.remove('selected'));
+            // Seleccionar actual
+            this.classList.add('selected');
+            selectedSessionToLoad = parseInt(this.dataset.sessionId);
+        });
+    });
+}
+
+// Función para cargar sesión seleccionada
+function loadSelectedSession(sessionId) {
+    const sessions = getSavedSessions();
+    const sessionToLoad = sessions.find(s => s.id === sessionId);
+    
+    if (!sessionToLoad) {
+        alert('❌ Sesión no encontrada.');
+        return;
+    }
+    
+    // Confirmar si hay zonas actuales
+    if (currentZones && currentZones.length > 0) {
+        const confirmLoad = confirm(
+            `⚠️ Tienes ${currentZones.length} zonas actualmente.\n\n` +
+            `¿Deseas cargar la sesión "${sessionToLoad.name}"?\n` +
+            `Esto reemplazará el trabajo actual.`
+        );
+        
+        if (!confirmLoad) {
+            return;
+        }
+    }
+    
+    try {
+        loadSessionData(sessionToLoad);
+        closeLoadSessionModal();
+        
+        alert(`✅ ¡Sesión cargada exitosamente!\n\n` +
+              `📝 Nombre: ${sessionToLoad.name}\n` +
+              `🗂️ Zonas: ${sessionToLoad.totalZones}\n` +
+              `📍 Direcciones: ${sessionToLoad.totalAddresses}`);
+        
+    } catch (error) {
+        console.error('Error al cargar sesión:', error);
+        alert('❌ Error al cargar la sesión: ' + error.message);
+    }
+}
+
+// Función para abrir modal de administrar sesiones
+function openManageSessionsModal() {
+    const modal = document.getElementById('manage-sessions-modal');
+    
+    updateManageSessionsList();
+    updateManageSessionsStats();
+    modal.style.display = 'flex';
+}
+
+// Función para actualizar estadísticas en modal de administrar
+function updateManageSessionsStats() {
+    const stats = getStorageStats();
+    
+    document.getElementById('total-sessions-count').textContent = stats.totalSessions;
+    document.getElementById('storage-used').textContent = stats.storageSize;
+}
+
+// Función para actualizar lista en modal de administrar
+function updateManageSessionsList() {
+    const sessionsList = document.getElementById('sessions-manage-list');
+    const sessions = getSavedSessions();
+    
+    if (sessions.length === 0) {
+        sessionsList.innerHTML = '<p class="no-sessions">No hay sesiones para administrar</p>';
+        return;
+    }
+    
+    sessionsList.innerHTML = sessions
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .map(session => `
+            <div class="session-item">
+                <div class="session-item-header">
+                    <h4 class="session-item-name">${session.name}</h4>
+                    <span class="session-item-date">${session.date}</span>
+                </div>
+                <div class="session-item-stats">
+                    <span>🗂️ ${session.totalZones} zonas</span>
+                    <span>📍 ${session.totalAddresses} direcciones</span>
+                </div>
+                <div class="session-item-actions">
+                    <button class="session-item-btn load-session-btn" onclick="loadSelectedSession(${session.id})">
+                        📂 Cargar
+                    </button>
+                    <button class="session-item-btn delete-session-btn" onclick="deleteSelectedSession(${session.id}, '${session.name}')">
+                        🗑️ Eliminar
+                    </button>
+                </div>
+            </div>
+        `).join('');
+}
+
+// Función para eliminar sesión seleccionada
+function deleteSelectedSession(sessionId, sessionName) {
+    const confirmDelete = confirm(
+        `⚠️ ¿Estás seguro de que deseas eliminar la sesión?\n\n` +
+        `📝 Nombre: ${sessionName}\n\n` +
+        `Esta acción no se puede deshacer.`
+    );
+    
+    if (!confirmDelete) return;
+    
+    if (deleteSessionFromStorage(sessionId)) {
+        updateManageSessionsList();
+        updateManageSessionsStats();
+        console.log(`🗑️ Sesión "${sessionName}" eliminada exitosamente`);
+    } else {
+        alert('❌ Error al eliminar la sesión.');
+    }
+}
+
+// Función para eliminar todas las sesiones
+function clearAllSessions() {
+    const sessions = getSavedSessions();
+    
+    if (sessions.length === 0) {
+        alert('ℹ️ No hay sesiones para eliminar.');
+        return;
+    }
+    
+    const confirmClear = confirm(
+        `⚠️ ¿Estás seguro de que deseas eliminar TODAS las sesiones guardadas?\n\n` +
+        `📊 Total: ${sessions.length} sesiones\n\n` +
+        `Esta acción no se puede deshacer.`
+    );
+    
+    if (!confirmClear) return;
+    
+    try {
+        localStorage.removeItem(SESSIONS_STORAGE_KEY);
+        localStorage.removeItem(LAST_SESSION_KEY);
+        
+        updateManageSessionsList();
+        updateManageSessionsStats();
+        
+        alert('✅ Todas las sesiones han sido eliminadas exitosamente.');
+    } catch (error) {
+        console.error('Error al eliminar todas las sesiones:', error);
+        alert('❌ Error al eliminar las sesiones.');
+    }
+}
+
+// Funciones para cerrar modales
+function closeSaveSessionModal() {
+    document.getElementById('save-session-modal').style.display = 'none';
+}
+
+function closeLoadSessionModal() {
+    document.getElementById('load-session-modal').style.display = 'none';
+    selectedSessionToLoad = null;
+}
+
+function closeManageSessionsModal() {
+    document.getElementById('manage-sessions-modal').style.display = 'none';
+}
+
+// Función para configurar event listeners de modales de sesiones
+function setupSessionModalListeners() {
+    // Modal de guardar sesión
+    const saveSessionModal = document.getElementById('save-session-modal');
+    const confirmSaveBtn = document.getElementById('confirm-save-session');
+    const cancelSaveBtn = document.getElementById('cancel-save-session');
+    const sessionNameInput = document.getElementById('session-name');
+    
+    if (confirmSaveBtn) {
+        confirmSaveBtn.addEventListener('click', saveSessionFromModal);
+    }
+    
+    if (cancelSaveBtn) {
+        cancelSaveBtn.addEventListener('click', closeSaveSessionModal);
+    }
+    
+    // Permitir guardar con Enter
+    if (sessionNameInput) {
+        sessionNameInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                saveSessionFromModal();
+            }
+        });
+    }
+    
+    // Modal de cargar sesión
+    const loadSessionModal = document.getElementById('load-session-modal');
+    const cancelLoadBtn = document.getElementById('cancel-load-session');
+    
+    if (cancelLoadBtn) {
+        cancelLoadBtn.addEventListener('click', closeLoadSessionModal);
+    }
+    
+    // Modal de administrar sesiones
+    const manageSessionsModal = document.getElementById('manage-sessions-modal');
+    const cancelManageBtn = document.getElementById('cancel-manage-sessions');
+    const clearAllBtn = document.getElementById('clear-all-sessions');
+    
+    if (cancelManageBtn) {
+        cancelManageBtn.addEventListener('click', closeManageSessionsModal);
+    }
+    
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', clearAllSessions);
+    }
+    
+    // Cerrar modales con botón X y click fuera
+    setupModalCloseListeners();
+}
+
+// Función para configurar cierre de modales
+function setupModalCloseListeners() {
+    const modals = [
+        'save-session-modal',
+        'load-session-modal',
+        'manage-sessions-modal'
+    ];
+    
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        const closeBtn = modal?.querySelector('.session-modal-close');
+        
+        if (modal && closeBtn) {
+            // Cerrar con botón X
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+            
+            // Cerrar con click fuera del modal
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+    });
+    
+    // Cerrar modales con tecla Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal && modal.style.display === 'flex') {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+    });
+}
+
+// ==========================================
 // GESTIÓN MANUAL DE DIRECCIONES
 // ==========================================
 
@@ -1119,6 +1664,7 @@ async function addAddressToExistingZone() {
         updateZoneDisplay();
         displayOnMapPreservingZoom(currentZones);
         updateAddToZoneSection(); // Actualizar contador de direcciones
+        updateSessionControls(); // Actualizar controles de sesión
         
         // Limpiar campos
         addressInput.value = '';
@@ -1174,6 +1720,25 @@ function attachEventListeners() {
     if (addToZoneBtn) {
         addToZoneBtn.addEventListener('click', addAddressToExistingZone);
     }
+    
+    // Event listeners para gestión de sesiones
+    const saveSessionBtn = document.getElementById('save-session-btn');
+    if (saveSessionBtn) {
+        saveSessionBtn.addEventListener('click', openSaveSessionModal);
+    }
+    
+    const loadSessionBtn = document.getElementById('load-session-btn');
+    if (loadSessionBtn) {
+        loadSessionBtn.addEventListener('click', openLoadSessionModal);
+    }
+    
+    const manageSessionsBtn = document.getElementById('manage-sessions-btn');
+    if (manageSessionsBtn) {
+        manageSessionsBtn.addEventListener('click', openManageSessionsModal);
+    }
+    
+    // Event listeners para modales de sesiones
+    setupSessionModalListeners();
     
     // Botón de información - manejado directamente en HTML
 }
@@ -2328,6 +2893,7 @@ function optimizeRoute(addresses) {
 function displayZones(zones) {
     updateZoneDisplay(zones);
     updateAddToZoneSection(); // Actualizar sección de agregar direcciones
+    updateSessionControls(); // Actualizar controles de sesión
 }
 
 function updateZoneDisplay(zones = currentZones) {

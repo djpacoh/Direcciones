@@ -154,6 +154,24 @@
         </button>
         <button id="toggle-map" class="map-control-btn">Minimizar/Maximizar Mapa</button>
     </div>
+    
+    <!-- Gestión de sesiones -->
+    <div id="session-controls" style="display: none;">
+        <div class="session-header">
+            <h3>💾 Gestión de Sesiones</h3>
+            <div class="session-actions">
+                <button id="save-session-btn" class="session-btn save-btn">
+                    💾 Guardar Sesión
+                </button>
+                <button id="load-session-btn" class="session-btn load-btn">
+                    📂 Cargar Sesión
+                </button>
+                <button id="manage-sessions-btn" class="session-btn manage-btn">
+                    ⚙️ Administrar
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div id="map"></div>
     <div id="output-container">
@@ -179,6 +197,74 @@
                 <div class="zone-editor-actions">
                     <button id="zone-editor-save" class="save-button">💾 Guardar Cambios</button>
                     <button id="zone-editor-cancel" class="cancel-button">❌ Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para guardar sesión -->
+    <div id="save-session-modal" class="session-modal-overlay" style="display: none;">
+        <div class="session-modal">
+            <div class="session-modal-header">
+                <h3>💾 Guardar Sesión Actual</h3>
+                <button class="session-modal-close">&times;</button>
+            </div>
+            <div class="session-modal-content">
+                <div class="session-info">
+                    <div class="session-stats">
+                        <p><strong>🗂️ Zonas actuales:</strong> <span id="current-zones-count">0</span></p>
+                        <p><strong>📍 Total direcciones:</strong> <span id="current-addresses-count">0</span></p>
+                        <p><strong>📅 Fecha:</strong> <span id="current-date"></span></p>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="session-name">Nombre de la sesión:</label>
+                    <input type="text" id="session-name" placeholder="Ej: Reparto Lunes Barcelona" maxlength="50">
+                </div>
+                <div class="session-modal-actions">
+                    <button id="confirm-save-session" class="session-action-btn save-action">💾 Guardar</button>
+                    <button id="cancel-save-session" class="session-action-btn cancel-action">❌ Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para cargar sesión -->
+    <div id="load-session-modal" class="session-modal-overlay" style="display: none;">
+        <div class="session-modal">
+            <div class="session-modal-header">
+                <h3>📂 Cargar Sesión Guardada</h3>
+                <button class="session-modal-close">&times;</button>
+            </div>
+            <div class="session-modal-content">
+                <div class="sessions-list" id="sessions-list">
+                    <p class="no-sessions">No hay sesiones guardadas</p>
+                </div>
+                <div class="session-modal-actions">
+                    <button id="cancel-load-session" class="session-action-btn cancel-action">❌ Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para administrar sesiones -->
+    <div id="manage-sessions-modal" class="session-modal-overlay" style="display: none;">
+        <div class="session-modal">
+            <div class="session-modal-header">
+                <h3>⚙️ Administrar Sesiones</h3>
+                <button class="session-modal-close">&times;</button>
+            </div>
+            <div class="session-modal-content">
+                <div class="manage-info">
+                    <p>📊 <strong>Total sesiones:</strong> <span id="total-sessions-count">0</span></p>
+                    <p>💾 <strong>Almacenamiento usado:</strong> <span id="storage-used">0 KB</span></p>
+                </div>
+                <div class="sessions-manage-list" id="sessions-manage-list">
+                    <p class="no-sessions">No hay sesiones para administrar</p>
+                </div>
+                <div class="session-modal-actions">
+                    <button id="clear-all-sessions" class="session-action-btn danger-action">🗑️ Eliminar Todas</button>
+                    <button id="cancel-manage-sessions" class="session-action-btn cancel-action">❌ Cerrar</button>
                 </div>
             </div>
         </div>
