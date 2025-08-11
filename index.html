@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Ordenar Direcciones</h1>
+    <h1>Ordenar Direcciones 1</h1>
 
     <div id="excel-container">
         <h2>Insertar txt Cada Dirección en una linea 
@@ -102,6 +102,29 @@
     <div id="output-container">
         <h2>Resultados</h2>
         <ul id="sorted-addresses"></ul>
+    </div>
+
+    <!-- Panel de edición de zona -->
+    <div id="zone-editor-overlay" style="display: none;">
+        <div id="zone-editor-modal">
+            <div class="zone-editor-header">
+                <h3 id="zone-editor-title">Editar Zona</h3>
+                <button id="zone-editor-close" class="close-button">×</button>
+            </div>
+            <div class="zone-editor-content">
+                <div class="zone-editor-info">
+                    <div id="zone-editor-stats"></div>
+                </div>
+                <div class="zone-editor-addresses">
+                    <h4>Direcciones en esta zona:</h4>
+                    <div id="zone-editor-list"></div>
+                </div>
+                <div class="zone-editor-actions">
+                    <button id="zone-editor-save" class="save-button">💾 Guardar Cambios</button>
+                    <button id="zone-editor-cancel" class="cancel-button">❌ Cancelar</button>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

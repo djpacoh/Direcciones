@@ -38,7 +38,17 @@ const elements = {
     
     // Map and results
     map: document.getElementById('map'),
-    sortedAddresses: document.getElementById('sorted-addresses')
+    sortedAddresses: document.getElementById('sorted-addresses'),
+    
+    // Zone editor elements
+    zoneEditorOverlay: null,
+    zoneEditorModal: null,
+    zoneEditorTitle: null,
+    zoneEditorClose: null,
+    zoneEditorStats: null,
+    zoneEditorList: null,
+    zoneEditorSave: null,
+    zoneEditorCancel: null
 };
 
 // ==========================================
@@ -51,9 +61,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Cargar códigos postales de Catalunya primero
     await loadCatalunyaPostalCodes();
     
+    // Inicializar elementos del editor de zonas
+    initializeZoneEditorElements();
+    
     initializeMap();
     attachEventListeners();
     setupVoiceRecognition();
+    setupZoneEditor();
 });
 
 // ==========================================  
@@ -174,6 +188,275 @@ function initializeMap() {
         console.error('Error al inicializar el mapa:', error);
     }
 }
+
+// ==========================================
+// EDITOR DE ZONAS
+// ==========================================
+
+function initializeZoneEditorElements() {
+    elements.zoneEditorOverlay = document.getElementById('zone-editor-overlay');
+    elements.zoneEditorModal = document.getElementById('zone-editor-modal');
+    elements.zoneEditorTitle = document.getElementById('zone-editor-title');
+    elements.zoneEditorClose = document.getElementById('zone-editor-close');
+    elements.zoneEditorStats = document.getElementById('zone-editor-stats');
+    elements.zoneEditorList = document.getElementById('zone-editor-list');
+    elements.zoneEditorSave = document.getElementById('zone-editor-save');
+    elements.zoneEditorCancel = document.getElementById('zone-editor-cancel');
+}
+
+function setupZoneEditor() {
+    if (!elements.zoneEditorClose || !elements.zoneEditorCancel || !elements.zoneEditorSave) {
+        return;
+    }
+
+    // Event listeners para cerrar el editor
+    elements.zoneEditorClose.addEventListener('click', closeZoneEditor);
+    elements.zoneEditorCancel.addEventListener('click', closeZoneEditor);
+    
+    // Cerrar al hacer click fuera del modal
+    elements.zoneEditorOverlay.addEventListener('click', function(e) {
+        if (e.target === elements.zoneEditorOverlay) {
+            closeZoneEditor();
+        }
+    });
+    
+    // Event listener para guardar cambios
+    elements.zoneEditorSave.addEventListener('click', saveZoneChanges);
+    
+    // Cerrar con la tecla Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && elements.zoneEditorOverlay.style.display !== 'none') {
+            closeZoneEditor();
+        }
+    });
+}
+
+function openZoneEditor(zoneIndex) {
+    if (!currentZones || !currentZones[zoneIndex]) {
+        alert('Error: No se pudo encontrar la zona a editar');
+        return;
+    }
+
+    selectedZoneIndex = zoneIndex;
+    currentEditingZone = currentZones[zoneIndex];
+    
+    // Crear copia de seguridad de los datos originales
+    originalZoneData = JSON.parse(JSON.stringify(currentEditingZone));
+    
+    // Configurar el título y estadísticas
+    const colors = [
+        '#FF0000', '#0000FF', '#00FF00', '#FF00FF', '#FFA500',
+        '#800080', '#00FFFF', '#FFFF00', '#8B4513', '#FFC0CB'
+    ];
+    const zoneColor = colors[zoneIndex % colors.length];
+    
+    elements.zoneEditorTitle.innerHTML = `Editar <span style="color: ${zoneColor};">Zona ${currentEditingZone.id}</span>`;
+    
+    // Mostrar estadísticas
+    elements.zoneEditorStats.innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div><strong>Direcciones:</strong> ${currentEditingZone.addresses.length}</div>
+            <div><strong>Zona ID:</strong> ${currentEditingZone.id}</div>
+            <div><strong>Centro:</strong> ${currentEditingZone.center.lat.toFixed(4)}, ${currentEditingZone.center.lng.toFixed(4)}</div>
+            <div><strong>Color:</strong> <span style="color: ${zoneColor}; font-weight: bold;">${zoneColor}</span></div>
+        </div>
+        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+            💡 Arrastra las direcciones para reordenar, usa los botones para editar o eliminar
+        </p>
+    `;
+    
+    // Renderizar lista de direcciones
+    renderZoneAddressList();
+    
+    // Marcar la zona como seleccionada en la lista de resultados
+    markSelectedZone(zoneIndex);
+    
+    // Mostrar el editor
+    elements.zoneEditorOverlay.style.display = 'flex';
+    
+    console.log(`🖊️ Editor abierto para Zona ${currentEditingZone.id}`);
+}
+
+function closeZoneEditor() {
+    elements.zoneEditorOverlay.style.display = 'none';
+    currentEditingZone = null;
+    originalZoneData = null;
+    selectedZoneIndex = null;
+    
+    // Quitar selección de la zona en la lista
+    clearSelectedZone();
+    
+    console.log('🚪 Editor de zona cerrado');
+}
+
+function markSelectedZone(zoneIndex) {
+    // Limpiar selecciones anteriores
+    clearSelectedZone();
+    
+    // Marcar la zona actual como seleccionada
+    const zoneElements = elements.sortedAddresses.querySelectorAll('.zone-item-clickable');
+    if (zoneElements[zoneIndex]) {
+        zoneElements[zoneIndex].classList.add('zone-selected');
+    }
+}
+
+function clearSelectedZone() {
+    const selectedElements = elements.sortedAddresses.querySelectorAll('.zone-selected');
+    selectedElements.forEach(el => el.classList.remove('zone-selected'));
+}
+
+function renderZoneAddressList() {
+    if (!currentEditingZone) return;
+    
+    elements.zoneEditorList.innerHTML = '';
+    
+    currentEditingZone.addresses.forEach((address, index) => {
+        const addressItem = document.createElement('div');
+        addressItem.className = 'zone-address-item';
+        addressItem.dataset.addressIndex = index;
+        
+        addressItem.innerHTML = `
+            <span class="address-drag-handle">⋮⋮</span>
+            <span class="address-order">${index + 1}</span>
+            <div class="address-content">
+                <div class="address-text">${address.address}</div>
+                <div class="address-details">
+                    📍 ${address.lat.toFixed(6)}, ${address.lng.toFixed(6)}
+                    ${address.postalCode ? ` • CP: ${address.postalCode}` : ''}
+                    ${address.isDefault ? ' • <span style="color: #ff9800;">Aproximada</span>' : ' • <span style="color: #4CAF50;">Precisa</span>'}
+                </div>
+            </div>
+            <div class="address-actions">
+                <button class="address-action-btn edit-address-btn" onclick="editAddress(${index})" title="Editar dirección">
+                    ✏️
+                </button>
+                <button class="address-action-btn delete-address-btn" onclick="deleteAddress(${index})" title="Eliminar dirección">
+                    🗑️
+                </button>
+            </div>
+        `;
+        
+        elements.zoneEditorList.appendChild(addressItem);
+    });
+    
+    // Configurar drag and drop para reordenar
+    setupAddressDragAndDrop();
+}
+
+function setupAddressDragAndDrop() {
+    const addressItems = elements.zoneEditorList.querySelectorAll('.zone-address-item');
+    
+    addressItems.forEach(item => {
+        item.draggable = true;
+        
+        item.addEventListener('dragstart', function(e) {
+            e.dataTransfer.setData('text/plain', item.dataset.addressIndex);
+            item.style.opacity = '0.5';
+        });
+        
+        item.addEventListener('dragend', function(e) {
+            item.style.opacity = '1';
+        });
+        
+        item.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            item.style.background = '#e8f5e8';
+        });
+        
+        item.addEventListener('dragleave', function(e) {
+            item.style.background = '';
+        });
+        
+        item.addEventListener('drop', function(e) {
+            e.preventDefault();
+            item.style.background = '';
+            
+            const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+            const targetIndex = parseInt(item.dataset.addressIndex);
+            
+            if (draggedIndex !== targetIndex) {
+                reorderAddress(draggedIndex, targetIndex);
+            }
+        });
+    });
+}
+
+function reorderAddress(fromIndex, toIndex) {
+    if (!currentEditingZone || fromIndex === toIndex) return;
+    
+    // Mover el elemento en el array
+    const movedAddress = currentEditingZone.addresses.splice(fromIndex, 1)[0];
+    currentEditingZone.addresses.splice(toIndex, 0, movedAddress);
+    
+    console.log(`🔄 Dirección movida de posición ${fromIndex + 1} a ${toIndex + 1}`);
+    
+    // Re-renderizar la lista
+    renderZoneAddressList();
+}
+
+// Funciones globales para editar direcciones (accesibles desde HTML)
+window.editAddress = function(addressIndex) {
+    if (!currentEditingZone || !currentEditingZone.addresses[addressIndex]) return;
+    
+    const address = currentEditingZone.addresses[addressIndex];
+    const newAddress = prompt('Editar dirección:', address.address);
+    
+    if (newAddress && newAddress.trim() !== address.address) {
+        address.address = newAddress.trim();
+        console.log(`✏️ Dirección editada: ${newAddress.trim()}`);
+        renderZoneAddressList();
+    }
+};
+
+window.deleteAddress = function(addressIndex) {
+    if (!currentEditingZone || !currentEditingZone.addresses[addressIndex]) return;
+    
+    const address = currentEditingZone.addresses[addressIndex];
+    
+    if (currentEditingZone.addresses.length <= 1) {
+        alert('No se puede eliminar la única dirección de la zona. La zona debe tener al menos una dirección.');
+        return;
+    }
+    
+    if (confirm(`¿Estás seguro de que quieres eliminar esta dirección?\n\n"${address.address}"`)) {
+        currentEditingZone.addresses.splice(addressIndex, 1);
+        console.log(`🗑️ Dirección eliminada: ${address.address}`);
+        
+        // Recalcular centro de la zona
+        currentEditingZone.center = calculateZoneCenter(currentEditingZone.addresses);
+        
+        // Re-renderizar la lista
+        renderZoneAddressList();
+        
+        // Actualizar estadísticas
+        elements.zoneEditorStats.innerHTML = elements.zoneEditorStats.innerHTML.replace(
+            /Direcciones:<\/strong> \d+/,
+            `Direcciones:</strong> ${currentEditingZone.addresses.length}`
+        );
+    }
+};
+
+function saveZoneChanges() {
+    if (!currentEditingZone || selectedZoneIndex === null) return;
+    
+    // Aplicar los cambios a la zona actual
+    currentZones[selectedZoneIndex] = currentEditingZone;
+    
+    console.log(`💾 Cambios guardados para Zona ${currentEditingZone.id}`);
+    
+    // Actualizar visualizaciones
+    updateZoneDisplay();
+    displayOnMap(currentZones);
+    
+    // Cerrar editor
+    closeZoneEditor();
+    
+    // Mostrar confirmación
+    alert(`✅ Cambios guardados exitosamente para la Zona ${currentEditingZone.id}`);
+}
+
+// Hacer la función openZoneEditor accesible globalmente para los botones HTML
+window.openZoneEditor = openZoneEditor;
 
 // ==========================================
 // EVENT LISTENERS
@@ -1389,11 +1672,14 @@ function updateZoneDisplay(zones = currentZones) {
     `;
     elements.sortedAddresses.appendChild(summaryElement);
     
-    // Mostrar cada zona con su color
+    // Mostrar cada zona con su color y funcionalidad de click
     zones.forEach((zone, zoneIndex) => {
         const zoneColor = colors[zoneIndex % colors.length];
         
         const zoneElement = document.createElement('li');
+        zoneElement.className = 'zone-item-clickable'; // Agregar clase para hacer clickeable
+        zoneElement.dataset.zoneIndex = zoneIndex; // Guardar índice de zona
+        
         zoneElement.innerHTML = `
             <h3 style="border-left: 4px solid ${zoneColor}; padding-left: 10px; color: ${zoneColor};">
                 Zona ${zone.id} - ${zone.addresses.length} direcciones
@@ -1408,6 +1694,17 @@ function updateZoneDisplay(zones = currentZones) {
                 `).join('')}
             </ul>
         `;
+        
+        // Agregar event listener para abrir el editor al hacer click
+        zoneElement.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log(`🖱️ Click en Zona ${zone.id} (índice ${zoneIndex})`);
+            openZoneEditor(zoneIndex);
+        });
+        
+        // Agregar título de ayuda
+        zoneElement.title = `Click para editar la Zona ${zone.id}`;
+        
         elements.sortedAddresses.appendChild(zoneElement);
     });
 }
@@ -1483,12 +1780,18 @@ function displayOnMap(zones) {
                 iconAnchor: [10, 10]
             });
             
-            // Crear marcador draggable
+            // Crear marcador draggable y clickeable
             const marker = L.marker([addr.lat, addr.lng], {
                 icon: customIcon,
                 draggable: true,
-                title: `Zona ${zone.id}: ${addr.address}`
+                title: `Zona ${zone.id}: ${addr.address} - Click para editar zona`
             }).addTo(map);
+            
+            // Agregar evento de click para abrir editor de zona
+            marker.on('click', function(e) {
+                console.log(`🖱️ Click en marcador de Zona ${zone.id}`);
+                openZoneEditor(zoneIndex);
+            });
             
             // Popup con información detallada y fuente de precisión
             const popupContent = `
@@ -1509,9 +1812,19 @@ function displayOnMap(zones) {
                     
                     <div style="font-size: 10px; color: #666; line-height: 1.3;">
                         <div>💡 <strong>Arrastra</strong> este punto para moverlo</div>
+                        <div>🖱️ <strong>Click</strong> en el punto para editar la zona</div>
                         <div>🎯 <strong>Coordenadas:</strong> ${addr.lat.toFixed(6)}, ${addr.lng.toFixed(6)}</div>
                         ${addr.defaultLocation ? `<div>🏠 <strong>Zona:</strong> ${addr.defaultLocation}</div>` : ''}
                         ${addr.display_name ? `<div style="margin-top: 4px; padding-top: 4px; border-top: 1px dotted #ddd;">🌍 <strong>Geocodificado como:</strong> ${addr.display_name.length > 60 ? addr.display_name.substring(0, 60) + '...' : addr.display_name}</div>` : ''}
+                    </div>
+                    
+                    <div style="margin-top: 10px; text-align: center;">
+                        <button onclick="window.openZoneEditor(${zoneIndex})" 
+                                style="background: ${zoneColor}; color: white; border: none; padding: 6px 12px; 
+                                       border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;
+                                       transition: all 0.2s;">
+                            📝 Editar Zona ${zone.id}
+                        </button>
                     </div>
                 </div>
             `;
