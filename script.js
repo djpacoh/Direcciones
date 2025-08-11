@@ -647,9 +647,9 @@ function saveZoneChanges() {
     
     console.log(`💾 Cambios guardados para Zona ${currentEditingZone.id}`);
     
-    // Actualizar visualizaciones
+    // Actualizar visualizaciones preservando zoom
     updateZoneDisplay();
-    displayOnMap(currentZones);
+    displayOnMapPreservingZoom(currentZones);
     
     // Cerrar editor
     closeZoneEditor();
@@ -696,6 +696,12 @@ function setupMultiSelectControls() {
     
     if (moveToZoneBtn) {
         moveToZoneBtn.addEventListener('click', moveSelectionToExistingZone);
+    }
+    
+    // Botón para ver todas las zonas
+    const fitAllBtn = document.getElementById('fit-all-zones-btn');
+    if (fitAllBtn) {
+        fitAllBtn.addEventListener('click', fitAllZonesInView);
     }
 }
 
@@ -884,9 +890,9 @@ function createNewZoneFromSelection() {
     
     console.log(`➕ Nueva zona creada: Zona ${newZoneId} con ${newZone.addresses.length} direcciones`);
     
-    // Actualizar visualizaciones
+    // Actualizar visualizaciones preservando zoom
     updateZoneDisplay();
-    displayOnMap(currentZones);
+    displayOnMapPreservingZoom(currentZones);
     
     // Limpiar selección y salir del modo
     exitMultiSelectMode();
@@ -967,9 +973,9 @@ function moveMultipleAddressesToZone(targetZoneIndex) {
     
     console.log(`🔄 Movidas ${movedCount} direcciones a Zona ${targetZone.id}`);
     
-    // Actualizar visualizaciones
+    // Actualizar visualizaciones preservando zoom
     updateZoneDisplay();
-    displayOnMap(currentZones);
+    displayOnMapPreservingZoom(currentZones);
     
     // Limpiar selección y salir del modo
     exitMultiSelectMode();
@@ -977,6 +983,38 @@ function moveMultipleAddressesToZone(targetZoneIndex) {
     alert(`✅ ¡Direcciones movidas exitosamente!\n\n` +
           `${movedCount} direcciones movidas a Zona ${targetZone.id}\n` +
           `Total en zona destino: ${targetZone.addresses.length} direcciones`);
+}
+
+// Función para ajustar la vista a todas las zonas
+function fitAllZonesInView() {
+    if (!currentZones || !map) {
+        alert('❌ No hay zonas para mostrar en el mapa.');
+        return;
+    }
+    
+    const allMarkers = zoneMarkers.flat();
+    if (allMarkers.length === 0) {
+        alert('❌ No hay marcadores en el mapa.');
+        return;
+    }
+    
+    console.log('🔍 Ajustando vista para mostrar todas las zonas...');
+    
+    // Usar la función de zoom inteligente sin preservar el zoom actual
+    smartMapZoom(allMarkers, false);
+    
+    // Mostrar feedback visual
+    const fitAllBtn = document.getElementById('fit-all-zones-btn');
+    if (fitAllBtn) {
+        const originalText = fitAllBtn.textContent;
+        fitAllBtn.textContent = '✅ ¡Vista Ajustada!';
+        fitAllBtn.style.backgroundColor = '#4CAF50';
+        
+        setTimeout(() => {
+            fitAllBtn.textContent = originalText;
+            fitAllBtn.style.backgroundColor = '';
+        }, 2000);
+    }
 }
 
 // ==========================================
@@ -2398,9 +2436,9 @@ function displayOnMap(zones) {
                         zone.center = calculateZoneCenter(zone.addresses);
                         closestZone.center = calculateZoneCenter(closestZone.addresses);
                         
-                        // Actualizar visualización
+                        // Actualizar visualización preservando zoom
                         updateZoneDisplay();
-                        displayOnMap(currentZones);
+                        displayOnMapPreservingZoom(currentZones);
                     }
                 } else {
                     // Actualizar coordenadas en la misma zona
@@ -2417,16 +2455,160 @@ function displayOnMap(zones) {
         zoneMarkers.push(zoneMarkerList);
     });
     
-    // Ajustar vista del mapa
+    // Ajustar vista del mapa con zoom inteligente
     if (zones.length > 0 && zones.some(zone => zone.addresses.length > 0)) {
         const allMarkers = zoneMarkers.flat();
-        if (allMarkers.length > 0) {
-            const group = new L.featureGroup(allMarkers);
-            map.fitBounds(group.getBounds().pad(0.1));
-        }
+        smartMapZoom(allMarkers);
     }
     
     console.log(`✅ Mapa actualizado con ${zones.length} zonas y ${zoneMarkers.flat().length} marcadores`);
+}
+
+// Función auxiliar para ajuste inteligente de zoom
+function smartMapZoom(markers, preserveZoom = false) {
+    if (!map || !markers || markers.length === 0) return;
+    
+    // Si se quiere preservar el zoom actual, no hacer nada
+    if (preserveZoom && map.getZoom() >= 12) {
+        console.log('🔒 Zoom preservado:', map.getZoom());
+        return;
+    }
+    
+    if (markers.length === 1) {
+        // Para una sola dirección, usar zoom fijo apropiado
+        const marker = markers[0];
+        const latLng = marker.getLatLng();
+        const currentZoom = map.getZoom();
+        const targetZoom = Math.max(currentZoom, 13); // No alejar más de zoom 13
+        map.setView([latLng.lat, latLng.lng], targetZoom);
+        console.log(`🎯 Zoom a una dirección: nivel ${targetZoom}`);
+    } else {
+        // Para múltiples direcciones
+        const group = new L.featureGroup(markers);
+        const bounds = group.getBounds();
+        
+        // Calcular zoom apropiado basado en el área
+        const boundsSize = bounds.getNorthEast().distanceTo(bounds.getSouthWest());
+        let maxZoom = 15;
+        
+        // Ajustar zoom máximo según la distancia entre puntos
+        if (boundsSize < 1000) { // Menos de 1km
+            maxZoom = 16;
+        } else if (boundsSize < 5000) { // Menos de 5km
+            maxZoom = 14;
+        } else if (boundsSize < 20000) { // Menos de 20km
+            maxZoom = 12;
+        } else {
+            maxZoom = 10;
+        }
+        
+        const fitBoundsOptions = {
+            padding: [30, 30], // Padding generoso para buena visualización
+            maxZoom: maxZoom
+        };
+        
+        map.fitBounds(bounds, fitBoundsOptions);
+        console.log(`🗺️ Zoom inteligente aplicado: ${markers.length} marcadores, zoom máx: ${maxZoom}`);
+    }
+}
+
+// Función para mostrar zonas preservando el zoom actual
+function displayOnMapPreservingZoom(zones) {
+    if (!map) return;
+    
+    console.log('🔒 Actualizando mapa preservando zoom actual...');
+    
+    // Limpiar marcadores anteriores
+    map.eachLayer(layer => {
+        if (layer instanceof L.Marker && !layer._url) {
+            map.removeLayer(layer);
+        }
+    });
+    
+    // Limpiar marcadores anteriores
+    zoneMarkers = [];
+    
+    // Colores más distinguibles para cada zona
+    const colors = [
+        '#FF0000', '#0000FF', '#00FF00', '#FF00FF', '#FFA500',
+        '#800080', '#00FFFF', '#FFFF00', '#8B4513', '#FFC0CB'
+    ];
+    
+    console.log(`🗺️ Mostrando ${zones.length} zonas en el mapa (zoom preservado)`);
+    
+    zones.forEach((zone, zoneIndex) => {
+        const zoneColor = colors[zoneIndex % colors.length];
+        const zoneMarkerList = [];
+        
+        zone.addresses.forEach((addr, addrIndex) => {
+            // Crear marcador personalizado con color de zona
+            const customIcon = L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="
+                    background-color: ${zoneColor};
+                    width: 20px;
+                    height: 20px;
+                    border: 2px solid white;
+                    border-radius: 50%;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: white;
+                    text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+                ">${zone.id}</div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            
+            // Crear marcador draggable y clickeable
+            const marker = L.marker([addr.lat, addr.lng], {
+                icon: customIcon,
+                draggable: true,
+                title: `Zona ${zone.id}: ${addr.address} - Click para editar zona`
+            }).addTo(map);
+            
+            // Agregar evento de click para abrir editor de zona o selección múltiple
+            marker.on('click', function(e) {
+                console.log(`🖱️ Click en marcador de Zona ${zone.id}`);
+                
+                // Si estamos en modo selección múltiple, manejar selección
+                if (multiSelectMode) {
+                    e.originalEvent.stopPropagation();
+                    handleMarkerClick(zoneIndex, addrIndex, addr, marker);
+                } else {
+                    // Modo normal: abrir editor de zona
+                    openZoneEditor(zoneIndex);
+                }
+            });
+            
+            // Popup con información detallada (versión simplificada)
+            const popupContent = `
+                <div style="min-width: 200px; font-family: Arial, sans-serif;">
+                    <h4 style="margin: 0 0 8px 0; color: ${zoneColor};">Zona ${zone.id}</h4>
+                    <p style="margin: 0 0 8px 0; font-size: 12px;"><strong>${addr.address}</strong></p>
+                    <div style="margin-top: 10px; text-align: center;">
+                        <button onclick="window.openZoneEditor(${zoneIndex})" 
+                                style="background: ${zoneColor}; color: white; border: none; padding: 6px 12px; 
+                                       border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                            📝 Editar Zona ${zone.id}
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            marker.bindPopup(popupContent);
+            
+            zoneMarkerList.push(marker);
+        });
+        
+        zoneMarkers.push(zoneMarkerList);
+    });
+    
+    // NO ajustar vista del mapa para preservar zoom
+    console.log(`✅ Mapa actualizado con zoom preservado (${zones.length} zonas)`);
 }
 
 function displayRouteOnMap(addresses) {

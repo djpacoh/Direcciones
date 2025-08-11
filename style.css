@@ -1011,6 +1011,14 @@ hr {
     transform: translateY(-1px);
 }
 
+#fit-all-zones-btn {
+    background-color: #2196F3 !important;
+}
+
+#fit-all-zones-btn:hover {
+    background-color: #1976D2 !important;
+}
+
 /* --- CONTROLES DE SELECCIÓN MÚLTIPLE --- */
 #multi-select-controls {
     background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
