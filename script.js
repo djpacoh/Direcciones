@@ -3159,6 +3159,10 @@ async function processExcelFile() {
         showProgress(75, 'Agrupando por zonas...');
         
         const zones = groupAddressesByZones(geocodedAddresses, zoneCount, maxAddresses, minAddresses);
+        
+        // ✅ ASIGNAR LAS ZONAS CREADAS A LA VARIABLE GLOBAL
+        currentZones = zones;
+        
         showProgress(100, 'Completado');
         
         displayZones(zones);
@@ -4036,8 +4040,23 @@ function groupAddressesByZones(addresses, requestedZones, maxAddresses, minAddre
     
     // Crear exactamente las zonas pedidas
     for (let i = 0; i < requestedZones && unassigned.length > 0; i++) {
+        // Calcular el próximo ID basado en zonas ya creadas
+        let nextId = 1;
+        if (currentZones && currentZones.length > 0) {
+            const existingIds = [...currentZones.map(z => z.id), ...zones.map(z => z.id)];
+            existingIds.sort((a, b) => a - b);
+            for (let id = 1; id <= existingIds.length + 1; id++) {
+                if (!existingIds.includes(id)) {
+                    nextId = id;
+                    break;
+                }
+            }
+        } else {
+            nextId = i + 1; // Si no hay zonas existentes, usar secuencial
+        }
+        
         const zone = {
-            id: getNextAvailableZoneId(),
+            id: nextId,
             addresses: [],
             center: null
         };
@@ -4051,7 +4070,7 @@ function groupAddressesByZones(addresses, requestedZones, maxAddresses, minAddre
         // Asegurar que esté dentro de límites
         targetSize = Math.max(minAddresses, Math.min(maxAddresses, targetSize));
         
-        console.log(`Zona ${zone.id}: objetivo ${targetSize} direcciones`);
+        console.log(`Zona ${nextId}: objetivo ${targetSize} direcciones`);
         
         // Seleccionar semilla (primera dirección o la más alejada)
         let seedIndex = 0;
