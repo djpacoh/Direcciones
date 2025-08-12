@@ -437,13 +437,7 @@ window.editAddress = function(addressIndex) {
     if (!currentEditingZone || !currentEditingZone.addresses[addressIndex]) return;
     
     const address = currentEditingZone.addresses[addressIndex];
-    const newAddress = prompt('Editar dirección:', address.address);
-    
-    if (newAddress && newAddress.trim() !== address.address) {
-        address.address = newAddress.trim();
-        console.log(`✏️ Dirección editada: ${newAddress.trim()}`);
-        renderZoneAddressList();
-    }
+    openAddressEditModal(addressIndex, address);
 };
 
 window.deleteAddress = function(addressIndex) {
@@ -955,6 +949,368 @@ function testDeleteZone() {
     console.log(`🎯 RESULTADO: La eliminación de Zona ${zoneId} DEBERÍA funcionar`);
     
     return true;
+}
+
+// ==========================================
+// EDITOR DE DIRECCIONES AVANZADO
+// ==========================================
+
+let currentEditingAddressIndex = null;
+let addressEditModal = null;
+
+function initializeAddressEditModal() {
+    // Crear el modal si no existe
+    if (!addressEditModal) {
+        createAddressEditModal();
+    }
+}
+
+function createAddressEditModal() {
+    const modalHTML = `
+        <div id="address-edit-modal" class="address-edit-overlay" style="display: none;">
+            <div class="address-edit-modal">
+                <div class="address-edit-header">
+                    <h3>✏️ Editar Dirección</h3>
+                    <button class="address-edit-close">&times;</button>
+                </div>
+                <div class="address-edit-content">
+                    <div class="address-edit-info">
+                        <p><strong>Posición:</strong> <span id="address-position"></span></p>
+                        <p><strong>Zona:</strong> <span id="address-zone"></span></p>
+                    </div>
+                    
+                    <div class="address-edit-form">
+                        <div class="form-group">
+                            <label for="edit-address-text">📍 Dirección:</label>
+                            <input type="text" id="edit-address-text" placeholder="Ingresa la dirección..." maxlength="200">
+                        </div>
+                        
+                        <div class="coordinates-group">
+                            <div class="form-group">
+                                <label for="edit-address-lat">🌐 Latitud:</label>
+                                <input type="number" id="edit-address-lat" step="0.000001" min="-90" max="90" 
+                                       placeholder="Ej: 41.123456">
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-address-lng">🌐 Longitud:</label>
+                                <input type="number" id="edit-address-lng" step="0.000001" min="-180" max="180" 
+                                       placeholder="Ej: 2.123456">
+                            </div>
+                        </div>
+                        
+                        <div class="coordinates-actions">
+                            <button id="geocode-address-btn" class="geocode-btn">🔍 Geocodificar Dirección</button>
+                            <button id="show-on-map-btn" class="show-map-btn">🗺️ Ver en Mapa</button>
+                        </div>
+                        
+                        <div class="address-precision-info">
+                            <div class="precision-indicator">
+                                <span id="address-precision-status">📍 Precisión: <span id="precision-text">Desconocida</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="address-edit-actions">
+                        <button id="save-address-btn" class="save-btn">💾 Guardar Cambios</button>
+                        <button id="cancel-address-edit-btn" class="cancel-btn">❌ Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    addressEditModal = document.getElementById('address-edit-modal');
+    
+    // Configurar event listeners
+    setupAddressEditModalEvents();
+}
+
+function setupAddressEditModalEvents() {
+    const modal = addressEditModal;
+    const closeBtn = modal.querySelector('.address-edit-close');
+    const saveBtn = modal.querySelector('#save-address-btn');
+    const cancelBtn = modal.querySelector('#cancel-address-edit-btn');
+    const geocodeBtn = modal.querySelector('#geocode-address-btn');
+    const showMapBtn = modal.querySelector('#show-on-map-btn');
+    const latInput = modal.querySelector('#edit-address-lat');
+    const lngInput = modal.querySelector('#edit-address-lng');
+    
+    // Cerrar modal
+    closeBtn.addEventListener('click', closeAddressEditModal);
+    cancelBtn.addEventListener('click', closeAddressEditModal);
+    
+    // Cerrar al hacer clic fuera del modal
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeAddressEditModal();
+        }
+    });
+    
+    // Guardar cambios
+    saveBtn.addEventListener('click', saveAddressChanges);
+    
+    // Geocodificar dirección
+    geocodeBtn.addEventListener('click', geocodeEditingAddress);
+    
+    // Mostrar en mapa
+    showMapBtn.addEventListener('click', showAddressOnMap);
+    
+    // Validación en tiempo real de coordenadas
+    [latInput, lngInput].forEach(input => {
+        input.addEventListener('input', validateCoordinatesInput);
+        input.addEventListener('change', updatePrecisionIndicator);
+    });
+    
+    // Atajo de teclado para cerrar con Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && addressEditModal && addressEditModal.style.display === 'flex') {
+            closeAddressEditModal();
+        }
+    });
+}
+
+function openAddressEditModal(addressIndex, address) {
+    if (!addressEditModal) {
+        initializeAddressEditModal();
+    }
+    
+    currentEditingAddressIndex = addressIndex;
+    
+    // Llenar información
+    document.getElementById('address-position').textContent = `${addressIndex + 1} de ${currentEditingZone.addresses.length}`;
+    document.getElementById('address-zone').textContent = `Zona ${currentEditingZone.id}`;
+    
+    // Llenar campos
+    document.getElementById('edit-address-text').value = address.address || '';
+    document.getElementById('edit-address-lat').value = address.lat || '';
+    document.getElementById('edit-address-lng').value = address.lng || '';
+    
+    // Actualizar indicador de precisión
+    updatePrecisionIndicator();
+    
+    // Mostrar modal
+    addressEditModal.style.display = 'flex';
+    
+    // Focus en el campo de dirección
+    setTimeout(() => {
+        document.getElementById('edit-address-text').focus();
+    }, 100);
+    
+    console.log(`🖊️ Abriendo editor para dirección ${addressIndex + 1}: "${address.address}"`);
+}
+
+function closeAddressEditModal() {
+    if (addressEditModal) {
+        // Limpiar marcador temporal si existe
+        if (addressEditModal.tempMarker) {
+            map.removeLayer(addressEditModal.tempMarker);
+            addressEditModal.tempMarker = null;
+        }
+        
+        // Resetear estilos de validación
+        const inputs = addressEditModal.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.style.borderColor = '#ddd';
+        });
+        
+        addressEditModal.style.display = 'none';
+        currentEditingAddressIndex = null;
+        console.log('🚪 Editor de dirección cerrado');
+    }
+}
+
+function validateCoordinatesInput() {
+    const latInput = document.getElementById('edit-address-lat');
+    const lngInput = document.getElementById('edit-address-lng');
+    const saveBtn = document.getElementById('save-address-btn');
+    
+    const lat = parseFloat(latInput.value);
+    const lng = parseFloat(lngInput.value);
+    
+    let isValid = true;
+    let errors = [];
+    
+    // Validar latitud
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+        latInput.style.borderColor = '#f44336';
+        errors.push('Latitud debe estar entre -90 y 90');
+        isValid = false;
+    } else {
+        latInput.style.borderColor = '#4CAF50';
+    }
+    
+    // Validar longitud
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+        lngInput.style.borderColor = '#f44336';
+        errors.push('Longitud debe estar entre -180 y 180');
+        isValid = false;
+    } else {
+        lngInput.style.borderColor = '#4CAF50';
+    }
+    
+    // Habilitar/deshabilitar botón guardar
+    saveBtn.disabled = !isValid;
+    saveBtn.title = isValid ? 'Guardar cambios' : errors.join(', ');
+    
+    return isValid;
+}
+
+function updatePrecisionIndicator() {
+    const address = currentEditingZone.addresses[currentEditingAddressIndex];
+    const precisionText = document.getElementById('precision-text');
+    const precisionStatus = document.getElementById('address-precision-status');
+    
+    if (address.isDefault) {
+        precisionText.textContent = 'Aproximada (Coordenadas por defecto)';
+        precisionText.style.color = '#ff9800';
+        precisionStatus.style.backgroundColor = '#fff3e0';
+    } else {
+        precisionText.textContent = 'Precisa (Geocodificada correctamente)';
+        precisionText.style.color = '#4CAF50';
+        precisionStatus.style.backgroundColor = '#e8f5e8';
+    }
+}
+
+async function geocodeEditingAddress() {
+    const addressText = document.getElementById('edit-address-text').value.trim();
+    const geocodeBtn = document.getElementById('geocode-address-btn');
+    
+    if (!addressText) {
+        alert('❌ Ingresa una dirección para geocodificar');
+        return;
+    }
+    
+    geocodeBtn.disabled = true;
+    geocodeBtn.textContent = '🔍 Geocodificando...';
+    
+    try {
+        console.log(`🔍 Geocodificando dirección editada: "${addressText}"`);
+        
+        const results = await geocodeAddress(addressText);
+        
+        if (results && results.length > 0) {
+            const result = results[0];
+            
+            document.getElementById('edit-address-lat').value = result.lat;
+            document.getElementById('edit-address-lng').value = result.lng;
+            
+            // Marcar como precisa (no por defecto)
+            const address = currentEditingZone.addresses[currentEditingAddressIndex];
+            address.isDefault = false;
+            
+            updatePrecisionIndicator();
+            validateCoordinatesInput();
+            
+            alert(`✅ Dirección geocodificada exitosamente!\n\n📍 ${result.lat}, ${result.lng}`);
+        } else {
+            alert('❌ No se pudieron obtener coordenadas para esta dirección');
+        }
+        
+    } catch (error) {
+        console.error('Error geocodificando:', error);
+        alert('❌ Error al geocodificar la dirección: ' + error.message);
+    } finally {
+        geocodeBtn.disabled = false;
+        geocodeBtn.textContent = '🔍 Geocodificar Dirección';
+    }
+}
+
+function showAddressOnMap() {
+    const lat = parseFloat(document.getElementById('edit-address-lat').value);
+    const lng = parseFloat(document.getElementById('edit-address-lng').value);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+        alert('❌ Ingresa coordenadas válidas para mostrar en el mapa');
+        return;
+    }
+    
+    if (!map) {
+        alert('❌ El mapa no está inicializado');
+        return;
+    }
+    
+    // Centrar el mapa en las coordenadas
+    map.setView([lat, lng], 16);
+    
+    // Crear marcador temporal para mostrar la posición
+    const tempMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            className: 'temp-edit-marker',
+            html: '📍',
+            iconSize: [20, 20],
+            iconAnchor: [10, 20]
+        })
+    }).addTo(map);
+    
+    // Popup con información
+    tempMarker.bindPopup(`
+        <div class="temp-marker-popup">
+            <h4>📍 Posición Editada</h4>
+            <p><strong>Lat:</strong> ${lat}</p>
+            <p><strong>Lng:</strong> ${lng}</p>
+            <small>Este marcador desaparecerá al cerrar el editor</small>
+        </div>
+    `).openPopup();
+    
+    // Guardar referencia para limpieza posterior
+    addressEditModal.tempMarker = tempMarker;
+    
+    alert('🗺️ Posición mostrada en el mapa. Revisa el marcador temporal.');
+}
+
+function saveAddressChanges() {
+    if (currentEditingAddressIndex === null || !currentEditingZone) {
+        alert('❌ Error: No hay dirección seleccionada para editar');
+        return;
+    }
+    
+    const addressText = document.getElementById('edit-address-text').value.trim();
+    const lat = parseFloat(document.getElementById('edit-address-lat').value);
+    const lng = parseFloat(document.getElementById('edit-address-lng').value);
+    
+    // Validaciones
+    if (!addressText) {
+        alert('❌ La dirección no puede estar vacía');
+        return;
+    }
+    
+    if (!validateCoordinatesInput()) {
+        alert('❌ Las coordenadas no son válidas');
+        return;
+    }
+    
+    // Actualizar la dirección
+    const address = currentEditingZone.addresses[currentEditingAddressIndex];
+    const oldAddress = address.address;
+    const oldLat = address.lat;
+    const oldLng = address.lng;
+    
+    address.address = addressText;
+    address.lat = lat;
+    address.lng = lng;
+    
+    console.log(`💾 Guardando cambios en dirección ${currentEditingAddressIndex + 1}:`);
+    console.log(`   - Dirección: "${oldAddress}" → "${addressText}"`);
+    console.log(`   - Coordenadas: ${oldLat}, ${oldLng} → ${lat}, ${lng}`);
+    
+    // Recalcular centro de la zona
+    currentEditingZone.center = calculateZoneCenter(currentEditingZone.addresses);
+    
+    // Actualizar visualizaciones
+    renderZoneAddressList();
+    displayOnMap(currentZones);
+    
+    // Limpiar marcador temporal si existe
+    if (addressEditModal.tempMarker) {
+        map.removeLayer(addressEditModal.tempMarker);
+        addressEditModal.tempMarker = null;
+    }
+    
+    // Cerrar modal
+    closeAddressEditModal();
+    
+    alert(`✅ Dirección actualizada exitosamente!\n\n📍 Nueva posición: ${lat}, ${lng}`);
 }
 
 // Función para mostrar ejemplo de gestión de IDs de zona
@@ -4356,6 +4712,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Configurar reconocimiento de voz
     setupVoiceRecognition();
+    
+    // Inicializar editor de direcciones avanzado
+    initializeAddressEditModal();
     
     // Actualizar secciones para mostrar opción de crear nueva zona
     updateAddToZoneSection();
