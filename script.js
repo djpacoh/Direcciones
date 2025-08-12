@@ -689,12 +689,17 @@ function saveZoneChanges() {
 
 // Función para eliminar zona completa
 function deleteCompleteZone() {
+    console.log('🗑️ === INICIANDO ELIMINACIÓN DE ZONA ===');
+    console.log('currentEditingZone:', currentEditingZone);
+    console.log('currentZones:', currentZones?.map(z => `Zona ${z.id}`));
+    
     if (!currentEditingZone || !currentZones) {
         alert('❌ Error: No se pudo identificar la zona a eliminar.');
         return;
     }
     
     // Validación: No permitir eliminar si es la única zona
+    console.log(`📊 Verificando cantidad de zonas: ${currentZones.length}`);
     if (currentZones.length <= 1) {
         alert('❌ No se puede eliminar la única zona restante.\n\n' +
               '💡 Debe haber al menos una zona disponible. Si deseas empezar de cero, carga un nuevo archivo.');
@@ -705,8 +710,13 @@ function deleteCompleteZone() {
     const zoneId = zoneToDelete.id;
     const addressCount = zoneToDelete.addresses.length;
     
+    console.log(`🎯 Intentando eliminar Zona ${zoneId} con ${addressCount} direcciones`);
+    
     // Buscar el índice actual de la zona por su ID (no usar selectedZoneIndex que puede estar obsoleto)
     const currentZoneIndex = findZoneIndexById(zoneId);
+    
+    console.log(`🔍 Búsqueda por ID ${zoneId}: índice encontrado = ${currentZoneIndex}`);
+    console.log(`📋 Zonas disponibles para búsqueda:`, currentZones.map(z => `ID=${z.id}`));
     
     if (currentZoneIndex === -1) {
         alert('❌ Error: No se pudo encontrar la zona a eliminar en la lista actual.');
@@ -791,17 +801,28 @@ function deleteCompleteZone() {
 function updateDeleteZoneButtonState() {
     const deleteBtn = elements.zoneEditorDelete;
     
-    if (!deleteBtn) return;
+    if (!deleteBtn) {
+        console.warn('⚠️ Botón eliminar zona no encontrado en DOM');
+        return;
+    }
+    
+    const zonesCount = currentZones?.length || 0;
+    const editingZoneId = currentEditingZone?.id || 'none';
+    const addressCount = currentEditingZone?.addresses?.length || 0;
+    
+    console.log(`🔄 Actualizando estado botón eliminar: ${zonesCount} zonas, editando Zona ${editingZoneId}`);
     
     // Deshabilitar si es la única zona
     if (!currentZones || currentZones.length <= 1) {
         deleteBtn.disabled = true;
         deleteBtn.title = 'No se puede eliminar la única zona restante';
         deleteBtn.textContent = '🚫 No Eliminar (Única Zona)';
+        console.log('🚫 Botón deshabilitado: única zona restante');
     } else {
         deleteBtn.disabled = false;
-        deleteBtn.title = `Eliminar completamente esta zona con ${currentEditingZone?.addresses?.length || 0} direcciones`;
+        deleteBtn.title = `Eliminar completamente esta zona con ${addressCount} direcciones`;
         deleteBtn.textContent = '🗑️ Eliminar Zona Completa';
+        console.log(`✅ Botón habilitado: ${zonesCount} zonas disponibles, puede eliminar Zona ${editingZoneId}`);
     }
 }
 
@@ -814,13 +835,97 @@ function findZoneById(zoneId) {
 // Función helper para buscar índice de zona por ID
 function findZoneIndexById(zoneId) {
     if (!currentZones) return -1;
-    return currentZones.findIndex(zone => zone.id === zoneId);
+    const index = currentZones.findIndex(zone => zone.id === zoneId);
+    console.log(`🔍 findZoneIndexById(${zoneId}): ${index} (de ${currentZones.length} zonas)`);
+    return index;
+}
+
+// Función de debug para diagnosticar problemas de eliminación
+function debugDeleteZoneState() {
+    console.log('🐛 === DEBUG DELETE ZONE STATE ===');
+    console.log('currentZones:', currentZones?.map(z => `Zona ${z.id} (${z.addresses?.length || 0} dirs)`));
+    console.log('currentEditingZone:', currentEditingZone ? `Zona ${currentEditingZone.id}` : 'null');
+    console.log('selectedZoneIndex:', selectedZoneIndex);
+    
+    if (currentEditingZone) {
+        const foundIndex = findZoneIndexById(currentEditingZone.id);
+        console.log(`🔍 Zona ${currentEditingZone.id} encontrada en índice:`, foundIndex);
+    }
+    
+    const deleteBtn = elements.zoneEditorDelete;
+    if (deleteBtn) {
+        console.log('🗑️ Botón eliminar estado:', {
+            disabled: deleteBtn.disabled,
+            textContent: deleteBtn.textContent,
+            title: deleteBtn.title
+        });
+    } else {
+        console.log('❌ Botón eliminar no encontrado');
+    }
+    
+    return {
+        zonesCount: currentZones?.length || 0,
+        canDelete: currentZones?.length > 1,
+        editingZone: currentEditingZone?.id || null,
+        buttonDisabled: deleteBtn?.disabled || false
+    };
+}
+
+// Función para probar eliminación sin ejecutar (solo diagnóstico)
+function testDeleteZone() {
+    console.log('🧪 === PRUEBA DE ELIMINACIÓN (SIN EJECUTAR) ===');
+    
+    if (!currentEditingZone || !currentZones) {
+        console.log('❌ FALLO: No hay zona en edición o lista de zonas');
+        return false;
+    }
+    
+    console.log(`✅ PASO 1: Datos disponibles`);
+    console.log(`   - Editando: Zona ${currentEditingZone.id}`);
+    console.log(`   - Total zonas: ${currentZones.length}`);
+    
+    if (currentZones.length <= 1) {
+        console.log('❌ FALLO: Solo hay 1 zona, no se puede eliminar');
+        return false;
+    }
+    
+    console.log(`✅ PASO 2: Más de 1 zona disponible (${currentZones.length})`);
+    
+    const zoneId = currentEditingZone.id;
+    const currentZoneIndex = findZoneIndexById(zoneId);
+    
+    if (currentZoneIndex === -1) {
+        console.log(`❌ FALLO: No se encontró Zona ${zoneId} en la lista`);
+        return false;
+    }
+    
+    console.log(`✅ PASO 3: Zona ${zoneId} encontrada en índice ${currentZoneIndex}`);
+    
+    const deleteBtn = elements.zoneEditorDelete;
+    if (!deleteBtn) {
+        console.log('❌ FALLO: Botón eliminar no encontrado');
+        return false;
+    }
+    
+    if (deleteBtn.disabled) {
+        console.log('❌ FALLO: Botón eliminar está deshabilitado');
+        console.log('   - Texto botón:', deleteBtn.textContent);
+        console.log('   - Title botón:', deleteBtn.title);
+        return false;
+    }
+    
+    console.log(`✅ PASO 4: Botón eliminar está habilitado`);
+    console.log(`🎯 RESULTADO: La eliminación de Zona ${zoneId} DEBERÍA funcionar`);
+    
+    return true;
 }
 
 // Hacer las funciones accesibles globalmente para los botones HTML
 window.openZoneEditor = openZoneEditor;
 window.loadSelectedSession = loadSelectedSession;
 window.deleteSelectedSession = deleteSelectedSession;
+window.debugDeleteZoneState = debugDeleteZoneState; // Para debugging en consola
+window.testDeleteZone = testDeleteZone; // Para probar eliminación paso a paso
 
 // ==========================================
 // SELECCIÓN MÚLTIPLE EN EL MAPA
