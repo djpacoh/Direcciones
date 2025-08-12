@@ -1071,8 +1071,17 @@ function setupAddressEditModalEvents() {
 }
 
 function openAddressEditModal(addressIndex, address) {
+    console.log(`🖊️ Intentando abrir editor para dirección ${addressIndex + 1}`);
+    
     if (!addressEditModal) {
+        console.log('📦 Modal no existe, inicializando...');
         initializeAddressEditModal();
+        
+        if (!addressEditModal) {
+            console.error('❌ Error: No se pudo crear el modal');
+            alert('❌ Error: No se pudo abrir el editor de direcciones');
+            return;
+        }
     }
     
     currentEditingAddressIndex = addressIndex;
@@ -1157,11 +1166,21 @@ function validateCoordinatesInput() {
 }
 
 function updatePrecisionIndicator() {
+    if (!currentEditingZone || currentEditingAddressIndex === null) {
+        console.warn('⚠️ updatePrecisionIndicator: No hay dirección seleccionada');
+        return;
+    }
+    
     const address = currentEditingZone.addresses[currentEditingAddressIndex];
     const precisionText = document.getElementById('precision-text');
     const precisionStatus = document.getElementById('address-precision-status');
     
-    if (address.isDefault) {
+    if (!precisionText || !precisionStatus) {
+        console.warn('⚠️ updatePrecisionIndicator: Elementos DOM no encontrados');
+        return;
+    }
+    
+    if (address && address.isDefault) {
         precisionText.textContent = 'Aproximada (Coordenadas por defecto)';
         precisionText.style.color = '#ff9800';
         precisionStatus.style.backgroundColor = '#fff3e0';
@@ -1260,57 +1279,259 @@ function showAddressOnMap() {
 }
 
 function saveAddressChanges() {
+    console.log('🔄 === INICIANDO GUARDADO DE DIRECCIÓN ===');
+    
     if (currentEditingAddressIndex === null || !currentEditingZone) {
+        console.error('❌ Error: Variables globales no válidas');
+        console.error('currentEditingAddressIndex:', currentEditingAddressIndex);
+        console.error('currentEditingZone:', currentEditingZone);
         alert('❌ Error: No hay dirección seleccionada para editar');
         return;
+    }
+    
+    console.log(`📋 Editando dirección índice: ${currentEditingAddressIndex}`);
+    console.log(`📋 Zona actual: ${currentEditingZone.id}`);
+    
+    // Obtener elementos del DOM
+    const addressTextEl = document.getElementById('edit-address-text');
+    const latEl = document.getElementById('edit-address-lat');
+    const lngEl = document.getElementById('edit-address-lng');
+    
+    if (!addressTextEl || !latEl || !lngEl) {
+        console.error('❌ Error: Elementos del DOM no encontrados');
+        console.error('addressTextEl:', !!addressTextEl);
+        console.error('latEl:', !!latEl);
+        console.error('lngEl:', !!lngEl);
+        alert('❌ Error: No se pueden obtener los datos del formulario');
+        return;
+    }
+    
+    const addressText = addressTextEl.value.trim();
+    const lat = parseFloat(latEl.value);
+    const lng = parseFloat(lngEl.value);
+    
+    console.log(`📝 Datos del formulario:`);
+    console.log(`   - Dirección: "${addressText}"`);
+    console.log(`   - Latitud: ${lat} (${typeof lat})`);
+    console.log(`   - Longitud: ${lng} (${typeof lng})`);
+    
+    // Validaciones
+    if (!addressText) {
+        console.error('❌ Validación fallida: Dirección vacía');
+        alert('❌ La dirección no puede estar vacía');
+        return;
+    }
+    
+    console.log('✅ Validación dirección: OK');
+    
+    // Validar coordenadas manualmente (más seguro)
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+        console.error('❌ Validación fallida: Latitud inválida', lat);
+        alert('❌ La latitud debe estar entre -90 y 90');
+        return;
+    }
+    
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+        console.error('❌ Validación fallida: Longitud inválida', lng);
+        alert('❌ La longitud debe estar entre -180 y 180');
+        return;
+    }
+    
+    console.log('✅ Validación coordenadas: OK');
+    
+    // Verificar que el índice sea válido
+    if (currentEditingAddressIndex >= currentEditingZone.addresses.length) {
+        console.error('❌ Error: Índice fuera de rango');
+        console.error('Índice:', currentEditingAddressIndex);
+        console.error('Total direcciones:', currentEditingZone.addresses.length);
+        alert('❌ Error: Dirección no válida para editar');
+        return;
+    }
+    
+    console.log('✅ Validación índice: OK');
+    
+    try {
+        // Actualizar la dirección
+        const address = currentEditingZone.addresses[currentEditingAddressIndex];
+        const oldAddress = address.address;
+        const oldLat = address.lat;
+        const oldLng = address.lng;
+        
+        console.log(`📝 Dirección original:`, address);
+        
+        address.address = addressText;
+        address.lat = lat;
+        address.lng = lng;
+        
+        console.log(`💾 Cambios aplicados:`);
+        console.log(`   - Dirección: "${oldAddress}" → "${addressText}"`);
+        console.log(`   - Coordenadas: ${oldLat}, ${oldLng} → ${lat}, ${lng}`);
+        console.log(`📝 Dirección actualizada:`, address);
+        
+        // Recalcular centro de la zona
+        console.log('🧮 Recalculando centro de zona...');
+        const oldCenter = {...currentEditingZone.center};
+        currentEditingZone.center = calculateZoneCenter(currentEditingZone.addresses);
+        console.log(`🧮 Centro: ${oldCenter.lat}, ${oldCenter.lng} → ${currentEditingZone.center.lat}, ${currentEditingZone.center.lng}`);
+        
+        // Actualizar visualizaciones
+        console.log('🔄 Actualizando visualizaciones...');
+        renderZoneAddressList();
+        console.log('✅ Lista de direcciones actualizada');
+        
+        displayOnMap(currentZones);
+        console.log('✅ Mapa actualizado');
+        
+        // Limpiar marcador temporal si existe
+        if (addressEditModal && addressEditModal.tempMarker) {
+            map.removeLayer(addressEditModal.tempMarker);
+            addressEditModal.tempMarker = null;
+            console.log('🧹 Marcador temporal removido');
+        }
+        
+        // Cerrar modal
+        closeAddressEditModal();
+        console.log('🚪 Modal cerrado');
+        
+        console.log('✅ === GUARDADO COMPLETADO EXITOSAMENTE ===');
+        alert(`✅ Dirección actualizada exitosamente!\n\n📍 Nueva posición: ${lat}, ${lng}`);
+        
+    } catch (error) {
+        console.error('❌ Error durante el guardado:', error);
+        alert('❌ Error inesperado al guardar: ' + error.message);
+    }
+}
+
+// Función rápida para forzar inicialización del modal
+function forceInitAddressModal() {
+    console.log('🔧 Forzando inicialización del modal...');
+    
+    if (!addressEditModal) {
+        console.log('📦 Creando modal...');
+        initializeAddressEditModal();
+    }
+    
+    if (addressEditModal) {
+        console.log('✅ Modal inicializado correctamente');
+        return true;
+    } else {
+        console.log('❌ Error: No se pudo inicializar el modal');
+        return false;
+    }
+}
+
+// Función de debug para el editor de direcciones
+function debugAddressEditor() {
+    console.log('🔍 === DEBUG EDITOR DE DIRECCIONES ===');
+    
+    console.log('🌐 Variables globales:');
+    console.log('   - currentEditingAddressIndex:', currentEditingAddressIndex);
+    console.log('   - currentEditingZone:', currentEditingZone ? `Zona ${currentEditingZone.id}` : 'null');
+    console.log('   - addressEditModal:', !!addressEditModal);
+    
+    if (!addressEditModal) {
+        console.log('❌ Modal no inicializado');
+        return { status: 'modal_not_initialized' };
+    }
+    
+    console.log('🎯 Estado del modal:');
+    console.log('   - Visible:', addressEditModal.style.display === 'flex');
+    
+    const elements = {
+        addressText: document.getElementById('edit-address-text'),
+        lat: document.getElementById('edit-address-lat'),
+        lng: document.getElementById('edit-address-lng'),
+        saveBtn: document.getElementById('save-address-btn')
+    };
+    
+    console.log('📋 Elementos del DOM:');
+    Object.entries(elements).forEach(([key, el]) => {
+        console.log(`   - ${key}: ${!!el} ${el ? `(valor: "${el.value}")` : ''}`);
+    });
+    
+    if (currentEditingZone && currentEditingAddressIndex !== null) {
+        const address = currentEditingZone.addresses[currentEditingAddressIndex];
+        console.log('🏠 Dirección siendo editada:');
+        console.log('   - Índice:', currentEditingAddressIndex);
+        console.log('   - Dirección:', address.address);
+        console.log('   - Lat:', address.lat);
+        console.log('   - Lng:', address.lng);
+    }
+    
+    if (elements.saveBtn) {
+        console.log('💾 Estado del botón guardar:');
+        console.log('   - Deshabilitado:', elements.saveBtn.disabled);
+        console.log('   - Título:', elements.saveBtn.title);
+    }
+    
+    console.log('✅ Debug completado');
+    return {
+        status: 'ok',
+        modalVisible: addressEditModal.style.display === 'flex',
+        elementsFound: Object.values(elements).every(el => !!el),
+        hasCurrentAddress: currentEditingZone && currentEditingAddressIndex !== null
+    };
+}
+
+// Función para probar el guardado paso a paso
+function testAddressSave() {
+    console.log('🧪 === PRUEBA DE GUARDADO (SIN EJECUTAR) ===');
+    
+    const debugResult = debugAddressEditor();
+    if (debugResult.status !== 'ok') {
+        console.log('❌ Debug falló, no se puede probar guardado');
+        return false;
+    }
+    
+    if (!debugResult.modalVisible) {
+        console.log('❌ Modal no está visible, abre el editor primero');
+        return false;
+    }
+    
+    if (!debugResult.elementsFound) {
+        console.log('❌ No se encontraron todos los elementos del DOM');
+        return false;
+    }
+    
+    if (!debugResult.hasCurrentAddress) {
+        console.log('❌ No hay dirección seleccionada para editar');
+        return false;
     }
     
     const addressText = document.getElementById('edit-address-text').value.trim();
     const lat = parseFloat(document.getElementById('edit-address-lat').value);
     const lng = parseFloat(document.getElementById('edit-address-lng').value);
     
+    console.log('📝 Valores actuales:');
+    console.log(`   - Dirección: "${addressText}"`);
+    console.log(`   - Latitud: ${lat}`);
+    console.log(`   - Longitud: ${lng}`);
+    
     // Validaciones
+    let errors = [];
+    
     if (!addressText) {
-        alert('❌ La dirección no puede estar vacía');
-        return;
+        errors.push('Dirección vacía');
     }
     
-    if (!validateCoordinatesInput()) {
-        alert('❌ Las coordenadas no son válidas');
-        return;
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+        errors.push(`Latitud inválida: ${lat}`);
     }
     
-    // Actualizar la dirección
-    const address = currentEditingZone.addresses[currentEditingAddressIndex];
-    const oldAddress = address.address;
-    const oldLat = address.lat;
-    const oldLng = address.lng;
-    
-    address.address = addressText;
-    address.lat = lat;
-    address.lng = lng;
-    
-    console.log(`💾 Guardando cambios en dirección ${currentEditingAddressIndex + 1}:`);
-    console.log(`   - Dirección: "${oldAddress}" → "${addressText}"`);
-    console.log(`   - Coordenadas: ${oldLat}, ${oldLng} → ${lat}, ${lng}`);
-    
-    // Recalcular centro de la zona
-    currentEditingZone.center = calculateZoneCenter(currentEditingZone.addresses);
-    
-    // Actualizar visualizaciones
-    renderZoneAddressList();
-    displayOnMap(currentZones);
-    
-    // Limpiar marcador temporal si existe
-    if (addressEditModal.tempMarker) {
-        map.removeLayer(addressEditModal.tempMarker);
-        addressEditModal.tempMarker = null;
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+        errors.push(`Longitud inválida: ${lng}`);
     }
     
-    // Cerrar modal
-    closeAddressEditModal();
+    if (errors.length > 0) {
+        console.log('❌ Errores de validación:');
+        errors.forEach(error => console.log(`   - ${error}`));
+        return false;
+    }
     
-    alert(`✅ Dirección actualizada exitosamente!\n\n📍 Nueva posición: ${lat}, ${lng}`);
+    console.log('✅ Todas las validaciones pasaron');
+    console.log('🎯 El guardado DEBERÍA funcionar correctamente');
+    
+    return true;
 }
 
 // Función para mostrar ejemplo de gestión de IDs de zona
@@ -1360,6 +1581,9 @@ window.deleteSelectedSession = deleteSelectedSession;
 window.debugDeleteZoneState = debugDeleteZoneState; // Para debugging en consola
 window.testDeleteZone = testDeleteZone; // Para probar eliminación paso a paso
 window.demonstrateZoneIdSystem = demonstrateZoneIdSystem; // Para ver cómo funciona el sistema de IDs
+window.debugAddressEditor = debugAddressEditor; // Para debugging del editor de direcciones
+window.testAddressSave = testAddressSave; // Para probar guardado de direcciones
+window.forceInitAddressModal = forceInitAddressModal; // Para forzar inicialización del modal
 
 // ==========================================
 // SELECCIÓN MÚLTIPLE EN EL MAPA

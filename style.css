@@ -1894,3 +1894,291 @@ hr {
 #zone-selector option:hover:not(:disabled) {
     background-color: #f0f0f0;
 }
+
+/* --- EDITOR DE DIRECCIONES AVANZADO --- */
+.address-edit-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(3px);
+    animation: fadeIn 0.3s ease;
+}
+
+.address-edit-modal {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9);
+    animation: modalSlideIn 0.3s ease forwards;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.address-edit-header {
+    background: linear-gradient(135deg, #2196f3, #21cbf3);
+    color: white;
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.address-edit-header h3 {
+    margin: 0;
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
+.address-edit-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s;
+}
+
+.address-edit-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.address-edit-content {
+    padding: 25px;
+}
+
+.address-edit-info {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.address-edit-info p {
+    margin: 5px 0;
+    color: #495057;
+}
+
+.address-edit-form {
+    margin-bottom: 25px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s;
+    box-sizing: border-box;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #2196f3;
+    box-shadow: 0 0 8px rgba(33, 150, 243, 0.3);
+}
+
+.coordinates-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.coordinates-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.geocode-btn, .show-map-btn {
+    padding: 12px 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.geocode-btn {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+}
+
+.geocode-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #45a049, #3e8e41);
+    transform: translateY(-2px);
+}
+
+.geocode-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.show-map-btn {
+    background: linear-gradient(135deg, #FF9800, #f57c00);
+    color: white;
+}
+
+.show-map-btn:hover {
+    background: linear-gradient(135deg, #f57c00, #e65100);
+    transform: translateY(-2px);
+}
+
+.address-precision-info {
+    background: #e8f5e8;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.precision-indicator span {
+    font-weight: 600;
+}
+
+.address-edit-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.save-btn, .cancel-btn {
+    padding: 15px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.save-btn {
+    background: linear-gradient(135deg, #2196f3, #21cbf3);
+    color: white;
+}
+
+.save-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #1976d2, #0288d1);
+    transform: translateY(-2px);
+}
+
+.save-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.cancel-btn {
+    background: linear-gradient(135deg, #f44336, #e53935);
+    color: white;
+}
+
+.cancel-btn:hover {
+    background: linear-gradient(135deg, #d32f2f, #c62828);
+    transform: translateY(-2px);
+}
+
+.temp-edit-marker {
+    background: #2196f3;
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+.temp-marker-popup {
+    text-align: center;
+}
+
+.temp-marker-popup h4 {
+    margin: 0 0 10px 0;
+    color: #2196f3;
+}
+
+.temp-marker-popup p {
+    margin: 5px 0;
+    font-family: 'Courier New', monospace;
+}
+
+.temp-marker-popup small {
+    color: #666;
+    font-style: italic;
+}
+
+/* Responsivo para móviles */
+@media (max-width: 768px) {
+    .address-edit-modal {
+        width: 95%;
+        margin: 10px;
+    }
+    
+    .coordinates-group {
+        grid-template-columns: 1fr;
+    }
+    
+    .coordinates-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .address-edit-actions {
+        grid-template-columns: 1fr;
+    }
+}
