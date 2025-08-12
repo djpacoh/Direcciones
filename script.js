@@ -5137,139 +5137,178 @@ function displayRouteOnMap(addresses) {
         }
     });
     
-    if (routeControl) {
-        map.removeControl(routeControl);
-    }
-    
-    if (addresses.length < 2) {
-        if (addresses.length === 1) {
-            L.marker([addresses[0].lat, addresses[0].lng])
-                .addTo(map)
-                .bindPopup(addresses[0].address);
-            map.setView([addresses[0].lat, addresses[0].lng], 13);
-        }
+    if (!addresses || addresses.length === 0) {
+        console.log('⚠️ No hay direcciones para mostrar en la ruta');
         return;
     }
     
-    // Crear waypoints para la ruta
-    const waypoints = addresses.map(addr => L.latLng(addr.lat, addr.lng));
+    console.log(`🗺️ Mostrando ruta con ${addresses.length} direcciones`);
     
-    routeControl = L.Routing.control({
-        waypoints: waypoints,
-        routeWhileDragging: false,
-        addWaypoints: false,
-        createMarker: function(i, waypoint, n) {
-            const marker = L.marker(waypoint.latLng);
-            marker.bindPopup(`${i + 1}. ${addresses[i].address}`);
-            return marker;
+    // Agregar marcadores para cada dirección en la ruta
+    const routeMarkers = [];
+    addresses.forEach((addr, index) => {
+        if (addr.lat && addr.lng) {
+            const marker = L.marker([addr.lat, addr.lng])
+                .addTo(map)
+                .bindPopup(`
+                    <div style="font-family: Arial, sans-serif;">
+                        <h4 style="margin: 0 0 8px 0; color: #2196F3;">Parada ${index + 1}</h4>
+                        <p style="margin: 0; font-size: 12px;"><strong>${addr.address}</strong></p>
+                        <p style="margin: 4px 0 0 0; font-size: 10px; color: #666;">
+                            📍 ${addr.lat.toFixed(6)}, ${addr.lng.toFixed(6)}
+                        </p>
+                    </div>
+                `);
+            
+            routeMarkers.push(marker);
         }
-    }).addTo(map);
-}
-
-// ==========================================
-// CONTROLES DE UI
-// ==========================================
-
-function showProgress(percentage, text) {
-    elements.progressContainer.style.display = 'block';
-    elements.progressFill.style.width = percentage + '%';
-    elements.progressPercentage.textContent = Math.round(percentage) + '%';
-    elements.progressText.textContent = text;
-}
-
-function hideProgress() {
-    elements.progressContainer.style.display = 'none';
-}
-
-function toggleMapVisibility() {
-    isMapMinimized = !isMapMinimized;
-    
-    if (isMapMinimized) {
-        elements.map.style.height = '100px';
-        elements.toggleMap.textContent = 'Maximizar Mapa';
-    } else {
-        elements.map.style.height = '400px';
-        elements.toggleMap.textContent = 'Minimizar Mapa';
-    }
-    
-    // Redimensionar el mapa después del cambio
-    setTimeout(() => {
-        if (map) {
-            map.invalidateSize();
-        }
-    }, 100);
-}
-
-// ==========================================
-// RECONOCIMIENTO DE VOZ
-// ==========================================
-
-function setupVoiceRecognition() {
-    const micButtons = document.querySelectorAll('.mic-button');
-    micButtons.forEach(setupVoiceRecognitionForElement);
-}
-
-function setupVoiceRecognitionForElement(micButton) {
-    if (!micButton) return;
-    
-    micButton.addEventListener('click', function() {
-        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            alert('Tu navegador no soporta reconocimiento de voz');
-            return;
-        }
-        
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        
-        recognition.lang = 'es-ES';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        
-        const targetInput = getTargetInput(micButton);
-        if (!targetInput) return;
-        
-        micButton.classList.add('listening');
-        micButton.textContent = '🔴';
-        
-        recognition.onresult = function(event) {
-            const transcript = event.results[0][0].transcript;
-            targetInput.value = transcript;
-        };
-        
-        recognition.onerror = function(event) {
-            console.error('Error de reconocimiento de voz:', event.error);
-            alert('Error en el reconocimiento de voz: ' + event.error);
-        };
-        
-        recognition.onend = function() {
-            micButton.classList.remove('listening');
-            micButton.textContent = '🎤';
-        };
-        
-        recognition.start();
     });
-}
-
-function getTargetInput(micButton) {
-    const targetId = micButton.dataset.target;
-    const targetClass = micButton.dataset.targetClass;
     
-    if (targetId) {
-        return document.getElementById(targetId);
-    } else if (targetClass) {
-        return micButton.parentElement.querySelector('.' + targetClass);
+    // Ajustar vista para mostrar toda la ruta
+    if (routeMarkers.length > 0) {
+        const group = new L.featureGroup(routeMarkers);
+        map.fitBounds(group.getBounds().pad(0.1));
     }
+}
+
+// ==========================================
+// INICIALIZACIÓN PRINCIPAL
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 === INICIANDO APLICACIÓN ===');
     
-    return null;
+    try {
+        // Inicializar mapa
+        initializeMap();
+        console.log('✅ Mapa inicializado');
+        
+        // Inicializar controles de transparencia
+        initializeTransparencyController();
+        console.log('✅ Controles de transparencia inicializados');
+        
+        // Crear controles de navegación flotantes
+        createMapNavigationControls();
+        console.log('✅ Controles de navegación creados');
+        
+        // Inicializar elementos de la UI
+        elements.readExcel = document.getElementById('read-excel');
+        elements.processExcel = document.getElementById('process-excel');
+        elements.cancelProcess = document.getElementById('cancel-process');
+        elements.excelFile = document.getElementById('excel-file');
+        elements.zoneCount = document.getElementById('zone-count');
+        elements.maxAddressesPerZone = document.getElementById('max-addresses-per-zone');
+        elements.minAddressesPerZone = document.getElementById('min-addresses-per-zone');
+        elements.sortedAddresses = document.getElementById('sorted-addresses');
+        
+        // Verificar elementos críticos
+        const criticalElements = ['read-excel', 'excel-file', 'sorted-addresses', 'transparency-slider'];
+        const missing = criticalElements.filter(id => !document.getElementById(id));
+        
+        if (missing.length > 0) {
+            console.error('❌ Elementos críticos faltantes:', missing);
+            console.warn('💡 Algunos elementos no están disponibles, pero la app continuará');
+        }
+        
+        // Configurar event listeners
+        if (elements.readExcel) {
+            elements.readExcel.addEventListener('click', async function() {
+                const file = elements.excelFile.files[0];
+                if (!file) {
+                    alert('Por favor selecciona un archivo primero');
+                    return;
+                }
+                
+                try {
+                    console.log('📂 Leyendo archivo:', file.name);
+                    if (file.name.endsWith('.txt') || file.name.endsWith('.csv')) {
+                        await readTextFile(file);
+                    } else {
+                        await readExcelFile(file);
+                    }
+                } catch (error) {
+                    console.error('❌ Error al leer archivo:', error);
+                    alert('❌ Error al leer el archivo: ' + error.message);
+                }
+            });
+        }
+        
+        if (elements.processExcel) {
+            elements.processExcel.addEventListener('click', async function() {
+                try {
+                    await processExcelFile();
+                } catch (error) {
+                    console.error('❌ Error al procesar archivo:', error);
+                    alert('❌ Error al procesar el archivo: ' + error.message);
+                }
+            });
+        }
+        
+        if (elements.cancelProcess) {
+            elements.cancelProcess.addEventListener('click', function() {
+                // Ocultar contenedor de preview
+                const previewContainer = document.getElementById('preview-container');
+                if (previewContainer) {
+                    previewContainer.style.display = 'none';
+                }
+                
+                // Limpiar archivo seleccionado
+                if (elements.excelFile) {
+                    elements.excelFile.value = '';
+                }
+                
+                console.log('🚫 Proceso cancelado');
+            });
+        }
+        
+        // Configurar reconocimiento de voz
+        try {
+            setupVoiceRecognition();
+            console.log('✅ Reconocimiento de voz configurado');
+        } catch (error) {
+            console.warn('⚠️ Error configurando reconocimiento de voz:', error.message);
+        }
+        
+        // Inicializar editor de direcciones avanzado
+        try {
+            initializeAddressEditModal();
+            console.log('✅ Editor de direcciones inicializado');
+        } catch (error) {
+            console.warn('⚠️ Error inicializando editor de direcciones:', error.message);
+        }
+        
+        // Actualizar secciones para mostrar opción de crear nueva zona
+        try {
+            updateAddToZoneSection();
+            updateMapClickModeButton();
+            console.log('✅ Secciones de gestión actualizadas');
+        } catch (error) {
+            console.warn('⚠️ Error actualizando secciones:', error.message);
+        }
+        
+        console.log('🎉 === APLICACIÓN INICIADA EXITOSAMENTE ===');
+        console.log('💡 Para verificar la interfaz flotante, ejecuta: testFloatingInterface()');
+        
+        // Test automático de la interfaz flotante
+        setTimeout(() => {
+            if (window.testFloatingInterface) {
+                testFloatingInterface();
+            }
+        }, 1000);
+        
+    } catch (error) {
+        console.error('❌ Error durante la inicialización:', error);
+        alert('❌ Error al inicializar la aplicación: ' + error.message);
+    }
+});
+
+// Función para reinicializar si es necesario
+function reinitializeApp() {
+    console.log('🔄 Reinicializando aplicación...');
+    location.reload();
 }
 
-// ==========================================
-// UTILIDADES
-// ==========================================
+// Agregar función global para reinicialización
+window.reinitializeApp = reinitializeApp;
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function cleanAddressText(address) {
-    if (!address || address =
+console.log('📄 Script.js cargado completamente');
