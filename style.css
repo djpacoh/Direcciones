@@ -4,15 +4,35 @@
 
 body {
     font-family: Arial, sans-serif;
-    margin: 20px;
+    margin: 0;
     padding: 0;
     background-color: #f5f5f5;
+    overflow: hidden; /* Evitar scroll en el body */
+}
+
+/* Ocultar líneas de separación en el layout flotante */
+hr {
+    display: none;
 }
 
 h1 {
-    color: #333;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1001;
+    color: white;
     text-align: center;
-    margin-bottom: 30px;
+    margin: 0;
+    padding: 15px 30px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    border-radius: 25px;
+    font-size: 1.5em;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
 }
 
 h2 {
@@ -26,13 +46,33 @@ h3 {
     margin-top: 20px;
 }
 
-/* --- CONTENEDORES PRINCIPALES --- */
+/* --- CONTENEDORES FLOTANTES --- */
 #excel-container, #manual-container {
-    background: white;
+    position: fixed;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.9);
     padding: 20px;
-    margin-bottom: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    max-height: 80vh;
+    overflow-y: auto;
+    transition: all 0.3s ease;
+}
+
+#excel-container {
+    top: 20px;
+    left: 20px;
+    width: 350px;
+    max-width: calc(100vw - 40px);
+}
+
+#manual-container {
+    top: 20px;
+    right: 20px;
+    width: 300px;
+    max-width: calc(100vw - 40px);
 }
 
 /* --- INPUTS Y BOTONES --- */
@@ -145,22 +185,35 @@ button:disabled {
     margin-top: 5px;
 }
 
-/* --- MAPA --- */
+/* --- MAPA FULLSCREEN --- */
 #map {
-    height: 400px;
-    width: 100%;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    margin: 20px 0;
-    transition: height 0.3s ease;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+    border: none;
+    margin: 0;
+    transition: all 0.3s ease;
 }
 
-/* --- RESULTADOS --- */
+/* --- RESULTADOS FLOTANTES --- */
 #output-container {
-    background: white;
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.9);
     padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    max-height: 300px;
+    overflow-y: auto;
+    transition: all 0.3s ease;
 }
 
 #sorted-addresses {
@@ -2163,6 +2216,165 @@ hr {
     font-style: italic;
 }
 
+/* --- BARRA DE TRANSPARENCIA --- */
+#transparency-controller {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1002;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    padding: 15px 20px;
+    border-radius: 25px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
+}
+
+#transparency-controller:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: scale(1.05);
+}
+
+#transparency-label {
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+#transparency-slider {
+    width: 120px;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #ff4444, #ffaa00, #00ff00);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+#transparency-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #333;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+}
+
+#transparency-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+#transparency-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #333;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+#transparency-value {
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 30px;
+    text-align: center;
+}
+
+/* --- CONTROLES ADICIONALES FLOTANTES --- */
+.floating-control {
+    position: fixed;
+    z-index: 1001;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.floating-control:hover {
+    background: rgba(255, 255, 255, 0.95);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0,0,0,0.3);
+}
+
+/* Clase para elementos que pueden cambiar transparencia */
+.transparency-target {
+    transition: all 0.3s ease;
+}
+
+/* --- BOTONES DE MINIMIZAR/MAXIMIZAR PANELES --- */
+.panel-toggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1003;
+    transition: all 0.2s ease;
+}
+
+.panel-toggle:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+}
+
+/* Estados minimizados de paneles */
+.minimized {
+    transform: scale(0.1);
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.minimized:hover {
+    transform: scale(0.15);
+    opacity: 0.6;
+}
+
+/* --- INDICADORES DE ZONA EN EL MAPA --- */
+.zone-indicator {
+    position: fixed;
+    top: 100px;
+    left: 20px;
+    z-index: 1001;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.zone-indicator:hover {
+    background: rgba(0, 0, 0, 0.95);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+}
+
 /* Responsivo para móviles */
 @media (max-width: 768px) {
     .address-edit-modal {
@@ -2180,5 +2392,34 @@ hr {
     
     .address-edit-actions {
         grid-template-columns: 1fr;
+    }
+    
+    /* Ajustes para móviles en el layout flotante */
+    #excel-container {
+        width: calc(100vw - 40px);
+        top: 80px;
+    }
+    
+    #manual-container {
+        width: calc(100vw - 40px);
+        top: 50%;
+        right: 20px;
+        transform: translateY(-50%);
+    }
+    
+    #transparency-controller {
+        bottom: 10px;
+        right: 10px;
+        padding: 10px 15px;
+    }
+    
+    #transparency-slider {
+        width: 80px;
+    }
+    
+    h1 {
+        font-size: 1.2em;
+        padding: 10px 20px;
+        top: 10px;
     }
 }

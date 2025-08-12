@@ -1707,6 +1707,311 @@ window.checkEditWorkflow = checkEditWorkflow; // Para verificar el flujo de edic
 window.guideToCorrectWorkflow = guideToCorrectWorkflow; // Para guiar al usuario
 
 // ==========================================
+// CONTROLES DE TRANSPARENCIA E INTERFAZ FLOTANTE
+// ==========================================
+
+function initializeTransparencyController() {
+    const slider = document.getElementById('transparency-slider');
+    const valueDisplay = document.getElementById('transparency-value');
+    
+    if (!slider || !valueDisplay) {
+        console.warn('⚠️ Elementos de transparencia no encontrados');
+        return;
+    }
+    
+    // Aplicar transparencia inicial
+    updateTransparency(slider.value);
+    
+    // Evento para cambio de transparencia
+    slider.addEventListener('input', function() {
+        const value = this.value;
+        updateTransparency(value);
+        valueDisplay.textContent = value + '%';
+    });
+    
+    console.log('🎭 Controlador de transparencia inicializado');
+}
+
+function updateTransparency(value) {
+    // Convertir el valor del slider (0-100) a opacidad (0.1-1.0)
+    const opacity = Math.max(0.1, value / 100);
+    
+    // Aplicar transparencia a todos los elementos con la clase transparency-target
+    const targets = document.querySelectorAll('.transparency-target');
+    targets.forEach(target => {
+        target.style.background = target.style.background.replace(/rgba?\([^)]+\)/, '') || '';
+        
+        // Aplicar nueva transparencia basada en el elemento
+        if (target.id === 'excel-container' || target.id === 'manual-container' || target.id === 'output-container') {
+            target.style.background = `rgba(255, 255, 255, ${opacity})`;
+        }
+    });
+    
+    console.log(`🎭 Transparencia actualizada: ${value}% (opacidad: ${opacity})`);
+}
+
+// Función para alternar visibilidad de paneles
+function togglePanel(panelId) {
+    const panel = document.getElementById(panelId);
+    const toggleBtn = panel.querySelector('.panel-toggle');
+    
+    if (!panel) return;
+    
+    if (panel.classList.contains('minimized')) {
+        // Restaurar panel
+        panel.classList.remove('minimized');
+        toggleBtn.textContent = '−';
+        console.log(`📖 Panel ${panelId} restaurado`);
+    } else {
+        // Minimizar panel
+        panel.classList.add('minimized');
+        toggleBtn.textContent = '+';
+        console.log(`📕 Panel ${panelId} minimizado`);
+    }
+}
+
+// Función para mostrar/ocultar todos los paneles
+function toggleAllPanels() {
+    const panels = document.querySelectorAll('.transparency-target');
+    const anyVisible = Array.from(panels).some(panel => !panel.classList.contains('minimized'));
+    
+    panels.forEach(panel => {
+        const toggleBtn = panel.querySelector('.panel-toggle');
+        if (anyVisible) {
+            panel.classList.add('minimized');
+            if (toggleBtn) toggleBtn.textContent = '+';
+        } else {
+            panel.classList.remove('minimized');
+            if (toggleBtn) toggleBtn.textContent = '−';
+        }
+    });
+    
+    console.log(`🎯 Todos los paneles ${anyVisible ? 'minimizados' : 'restaurados'}`);
+}
+
+// Función para crear indicador de zona
+function createZoneIndicator(zoneCount) {
+    // Remover indicador existente si existe
+    const existing = document.getElementById('zone-indicator');
+    if (existing) {
+        existing.remove();
+    }
+    
+    if (zoneCount > 0) {
+        const indicator = document.createElement('div');
+        indicator.id = 'zone-indicator';
+        indicator.className = 'zone-indicator';
+        
+        // Información más detallada
+        let totalAddresses = 0;
+        if (currentZones && currentZones.length > 0) {
+            totalAddresses = currentZones.reduce((sum, zone) => sum + zone.addresses.length, 0);
+        }
+        
+        indicator.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 16px;">📍</span>
+                <div style="line-height: 1.2;">
+                    <div style="font-weight: bold;">${zoneCount} Zonas Activas</div>
+                    ${totalAddresses > 0 ? `<div style="font-size: 11px; opacity: 0.8;">${totalAddresses} direcciones total</div>` : ''}
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(indicator);
+        
+        // Animación de aparición
+        indicator.style.transform = 'translateY(-20px)';
+        indicator.style.opacity = '0';
+        setTimeout(() => {
+            indicator.style.transform = 'translateY(0)';
+            indicator.style.opacity = '1';
+        }, 100);
+    }
+}
+
+// Función para crear controles de navegación del mapa
+function createMapNavigationControls() {
+    // Evitar crear controles duplicados
+    const existing = document.getElementById('map-navigation');
+    if (existing) {
+        return;
+    }
+    
+    const navControls = document.createElement('div');
+    navControls.id = 'map-navigation';
+    navControls.className = 'floating-control';
+    navControls.style.cssText = `
+        top: 200px;
+        left: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px;
+    `;
+    
+    navControls.innerHTML = `
+        <button onclick="fitAllZonesInMap()" title="Ver todas las zonas" style="
+            background: rgba(76, 175, 80, 0.9);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s ease;
+        ">🔍</button>
+        <button onclick="toggleAllPanels()" title="Minimizar/Restaurar paneles" style="
+            background: rgba(33, 150, 243, 0.9);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s ease;
+        ">📋</button>
+        <button onclick="resetMapView()" title="Resetear vista del mapa" style="
+            background: rgba(255, 152, 0, 0.9);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s ease;
+        ">🏠</button>
+    `;
+    
+    document.body.appendChild(navControls);
+}
+
+// Función para ajustar la vista a todas las zonas
+function fitAllZonesInMap() {
+    if (!map || !currentZones || currentZones.length === 0) {
+        console.warn('⚠️ No hay zonas para ajustar la vista');
+        resetMapView();
+        return;
+    }
+    
+    const allCoords = [];
+    currentZones.forEach(zone => {
+        zone.addresses.forEach(addr => {
+            if (addr.lat && addr.lng) {
+                allCoords.push([addr.lat, addr.lng]);
+            }
+        });
+    });
+    
+    if (allCoords.length > 0) {
+        const group = new L.featureGroup();
+        allCoords.forEach(coord => {
+            L.marker(coord).addTo(group);
+        });
+        
+        map.fitBounds(group.getBounds().pad(0.1));
+        console.log(`🔍 Vista ajustada a ${allCoords.length} direcciones`);
+        
+        // Limpiar marcadores temporales
+        setTimeout(() => {
+            group.clearLayers();
+        }, 100);
+    } else {
+        resetMapView();
+    }
+}
+
+// Función para resetear vista del mapa
+function resetMapView() {
+    if (map) {
+        map.setView([39.4699, -0.3763], 6); // Vista de España
+        console.log('🏠 Vista del mapa reseteada');
+    }
+}
+
+// Función para ajustar el tamaño del mapa cuando se redimensiona la ventana
+function handleWindowResize() {
+    if (map) {
+        setTimeout(() => {
+            map.invalidateSize();
+            console.log('📐 Tamaño del mapa ajustado');
+        }, 100);
+    }
+}
+
+// Event listeners adicionales
+window.addEventListener('resize', handleWindowResize);
+
+// Atajos de teclado
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + H: Alternar paneles
+    if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        toggleAllPanels();
+    }
+    
+    // Ctrl/Cmd + M: Resetear mapa
+    if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
+        e.preventDefault();
+        resetMapView();
+    }
+});
+
+// Agregar funciones globales para acceso desde HTML
+window.togglePanel = togglePanel;
+window.toggleAllPanels = toggleAllPanels;
+window.resetMapView = resetMapView;
+window.fitAllZonesInMap = fitAllZonesInMap;
+window.testFloatingInterface = testFloatingInterface;
+
+// Función de prueba para verificar la interfaz flotante
+function testFloatingInterface() {
+    console.log('🧪 === PRUEBA DE INTERFAZ FLOTANTE ===');
+    
+    const elements = {
+        map: document.getElementById('map'),
+        transparencyController: document.getElementById('transparency-controller'),
+        transparencySlider: document.getElementById('transparency-slider'),
+        excelContainer: document.getElementById('excel-container'),
+        manualContainer: document.getElementById('manual-container'),
+        outputContainer: document.getElementById('output-container'),
+        mapNavigation: document.getElementById('map-navigation'),
+        zoneIndicator: document.getElementById('zone-indicator')
+    };
+    
+    console.log('📋 Estado de elementos:');
+    Object.entries(elements).forEach(([key, el]) => {
+        const exists = !!el;
+        const visible = exists && el.style.display !== 'none';
+        console.log(`   - ${key}: ${exists ? '✅' : '❌'} ${exists ? (visible ? '👁️' : '👀') : ''}`);
+        
+        if (exists && key !== 'zoneIndicator') {
+            const styles = window.getComputedStyle(el);
+            const position = styles.position;
+            const zIndex = styles.zIndex;
+            console.log(`     Position: ${position}, Z-Index: ${zIndex}`);
+        }
+    });
+    
+    // Probar transparencia
+    if (elements.transparencySlider) {
+        const currentValue = elements.transparencySlider.value;
+        console.log(`🎭 Transparencia actual: ${currentValue}%`);
+    }
+    
+    // Verificar que el mapa sea fullscreen
+    if (elements.map) {
+        const rect = elements.map.getBoundingClientRect();
+        const isFullscreen = rect.width >= window.innerWidth * 0.9 && rect.height >= window.innerHeight * 0.9;
+        console.log(`🗺️ Mapa fullscreen: ${isFullscreen ? '✅' : '❌'} (${Math.round(rect.width)}x${Math.round(rect.height)})`);
+    }
+    
+    console.log('✅ Prueba completada');
+}
+
+console.log('🎭 Sistema de interfaz flotante inicializado');
+
+// ==========================================
 // SELECCIÓN MÚLTIPLE EN EL MAPA
 // ==========================================
 
@@ -4492,6 +4797,9 @@ function displayOnMap(zones) {
     // Guardar zonas actuales globalmente
     currentZones = zones;
     
+    // Actualizar indicador de zona
+    createZoneIndicator(zones.length);
+    
     // Limpiar mapa anterior
     map.eachLayer(layer => {
         if (layer !== map.tileLayer && !layer._url) {
@@ -4964,108 +5272,4 @@ function sleep(ms) {
 }
 
 function cleanAddressText(address) {
-    if (!address || address === null || address === undefined) {
-        console.warn(`⚠️ Dirección vacía o nula:`, address);
-        return '';
-    }
-    
-    let cleaned = address.toString().trim();
-    
-    // Si está completamente vacía después del trim
-    if (cleaned.length === 0) {
-        console.warn(`⚠️ Dirección vacía después del trim:`, address);
-        return '';
-    }
-    
-    // Corregir caracteres UTF-8 mal codificados comunes
-    const replacements = {
-        // Acentos básicos
-        'Ã¡': 'á', 'Ã ': 'à', 'Ã©': 'é', 'Ã¨': 'è', 'Ã­': 'í', 'Ã¬': 'ì',
-        'Ã³': 'ó', 'Ã²': 'ò', 'Ãº': 'ú', 'Ã¹': 'ù', 'Ã±': 'ñ', 'Ã§': 'ç',
-        // Codificación doble
-        'ÃƒÂ¡': 'á', 'ÃƒÂ©': 'é', 'ÃƒÂ­': 'í', 'ÃƒÂ³': 'ó', 'ÃƒÂº': 'ú', 'ÃƒÂ±': 'ñ',
-        // Específicos catalán
-        'Ã¯': 'ï', 'Ã¼': 'ü', 'Ã«': 'ë', 'Ã¤': 'ä', 'Ã¶': 'ö',
-        // Casos específicos problemáticos
-        'AragÃ³': 'Aragó', 'GrÃ cia': 'Gràcia', 'Sant GervÃ si': 'Sant Gervasi',
-        'MatarÃ³': 'Mataró', 'LleidÃ ': 'Lleida', 'TarragonÃ ': 'Tarragona'
-    };
-    
-    // Aplicar reemplazos
-    Object.entries(replacements).forEach(([wrong, correct]) => {
-        cleaned = cleaned.replace(new RegExp(wrong, 'g'), correct);
-    });
-    
-    // Limpiar espacios múltiples, tabs, etc.
-    cleaned = cleaned.replace(/[\s\t\n\r]+/g, ' ').trim();
-    
-    // Eliminar caracteres raros al final/inicio
-    cleaned = cleaned.replace(/^[^\w\d]+|[^\w\d\s]+$/g, '');
-    
-    // Verificar que la dirección tenga contenido útil
-    if (cleaned.length < 5) {
-        console.warn(`⚠️ Dirección demasiado corta después de limpiar: "${cleaned}" (original: "${address}")`);
-        return '';
-    }
-    
-    console.log(`🧹 Limpieza: "${address}" → "${cleaned}"`);
-    
-    return cleaned;
-}
-
-function simplifyAddress(address) {
-    if (!address) return '';
-    
-    let simplified = address.toString().trim();
-    
-    // Extraer solo los componentes más importantes
-    // Patrón: Calle/Carrer + Número + Ciudad + Código postal
-    const addressPattern = /^(.+?)\s+(\d+)\s+(.+?)\s+(\d{5})?\s*$/;
-    const match = simplified.match(addressPattern);
-    
-    if (match) {
-        const [, street, number, city] = match;
-        simplified = `${street.trim()} ${number}, ${city.trim()}`;
-    }
-    
-    // Limpiar palabras comunes que pueden causar problemas
-    simplified = simplified
-        .replace(/\s+(de|del|la|el|les|dels|las|los)\s+/gi, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    
-    console.log(`Dirección simplificada: "${simplified}"`);
-    return simplified;
-}
-
-// ==========================================
-// INICIALIZACIÓN
-// ==========================================
-
-// Inicializar la aplicación cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Inicializando aplicación...');
-    
-    // Configurar elementos DOM
-    setupElements();
-    
-    // Configurar event listeners
-    attachEventListeners();
-    
-    // Configurar editor de zona
-    setupZoneEditor();
-    
-    // Configurar reconocimiento de voz
-    setupVoiceRecognition();
-    
-    // Inicializar editor de direcciones avanzado
-    initializeAddressEditModal();
-    
-    // Actualizar secciones para mostrar opción de crear nueva zona
-    updateAddToZoneSection();
-    updateMapClickModeButton();
-    
-    console.log('✅ Aplicación inicializada correctamente');
-});
-
-console.log('Script de Ordenar Direcciones cargado correctamente');
+    if (!address || address =
