@@ -1071,25 +1071,7 @@ function setupAddressEditModalEvents() {
 }
 
 function openAddressEditModal(addressIndex, address) {
-    console.log(`🖊️ === ABRIENDO EDITOR DE DIRECCIÓN ===`);
-    console.log(`📍 Dirección ${addressIndex + 1}: "${address.address}"`);
-    console.log(`🏠 Zona actual: ${currentEditingZone ? currentEditingZone.id : 'NO DEFINIDA'}`);
-    
-    // VALIDACIÓN CRÍTICA: Verificar que tenemos zona activa
-    if (!currentEditingZone) {
-        console.error('❌ CRÍTICO: currentEditingZone es null/undefined');
-        console.error('💡 Esto significa que no hay zona siendo editada en el editor principal');
-        alert('❌ Error crítico: No hay zona activa para editar.\n\nPor favor:\n1. Cierra este editor\n2. Abre el editor de zona desde la lista\n3. Luego intenta editar la dirección');
-        return;
-    }
-    
-    // VALIDACIÓN: Verificar que el índice es válido
-    if (addressIndex < 0 || addressIndex >= currentEditingZone.addresses.length) {
-        console.error('❌ CRÍTICO: Índice de dirección inválido');
-        console.error(`Índice: ${addressIndex}, Total direcciones: ${currentEditingZone.addresses.length}`);
-        alert('❌ Error: Índice de dirección inválido');
-        return;
-    }
+    console.log(`🖊️ Intentando abrir editor para dirección ${addressIndex + 1}`);
     
     if (!addressEditModal) {
         console.log('📦 Modal no existe, inicializando...');
@@ -1102,67 +1084,29 @@ function openAddressEditModal(addressIndex, address) {
         }
     }
     
-    // ESTABLECER VARIABLES GLOBALES CRÍTICAS
     currentEditingAddressIndex = addressIndex;
-    console.log(`✅ Variables establecidas:`);
-    console.log(`   - currentEditingAddressIndex: ${currentEditingAddressIndex}`);
-    console.log(`   - currentEditingZone.id: ${currentEditingZone.id}`);
-    console.log(`   - Total direcciones en zona: ${currentEditingZone.addresses.length}`);
     
-    // Verificar elementos del DOM antes de usarlos
-    const elements = {
-        position: document.getElementById('address-position'),
-        zone: document.getElementById('address-zone'),
-        addressText: document.getElementById('edit-address-text'),
-        lat: document.getElementById('edit-address-lat'),
-        lng: document.getElementById('edit-address-lng')
-    };
+    // Llenar información
+    document.getElementById('address-position').textContent = `${addressIndex + 1} de ${currentEditingZone.addresses.length}`;
+    document.getElementById('address-zone').textContent = `Zona ${currentEditingZone.id}`;
     
-    console.log('🔍 Verificando elementos del DOM:');
-    const missingElements = [];
-    Object.entries(elements).forEach(([key, el]) => {
-        const exists = !!el;
-        console.log(`   - ${key}: ${exists ? '✅' : '❌'}`);
-        if (!exists) missingElements.push(key);
-    });
-    
-    if (missingElements.length > 0) {
-        console.error('❌ Elementos DOM faltantes:', missingElements);
-        alert(`❌ Error: Elementos del modal no encontrados: ${missingElements.join(', ')}`);
-        return;
-    }
-    
-    // Llenar información del modal
-    elements.position.textContent = `${addressIndex + 1} de ${currentEditingZone.addresses.length}`;
-    elements.zone.textContent = `Zona ${currentEditingZone.id}`;
-    
-    // Llenar campos con datos actuales
-    elements.addressText.value = address.address || '';
-    elements.lat.value = address.lat || '';
-    elements.lng.value = address.lng || '';
-    
-    console.log('📝 Datos cargados en el modal:');
-    console.log(`   - Dirección: "${elements.addressText.value}"`);
-    console.log(`   - Latitud: ${elements.lat.value}`);
-    console.log(`   - Longitud: ${elements.lng.value}`);
+    // Llenar campos
+    document.getElementById('edit-address-text').value = address.address || '';
+    document.getElementById('edit-address-lat').value = address.lat || '';
+    document.getElementById('edit-address-lng').value = address.lng || '';
     
     // Actualizar indicador de precisión
     updatePrecisionIndicator();
     
     // Mostrar modal
     addressEditModal.style.display = 'flex';
-    console.log('👁️ Modal mostrado');
     
     // Focus en el campo de dirección
     setTimeout(() => {
-        if (elements.addressText) {
-            elements.addressText.focus();
-            elements.addressText.select(); // Seleccionar todo el texto para fácil edición
-            console.log('⌨️ Focus establecido en campo dirección');
-        }
+        document.getElementById('edit-address-text').focus();
     }, 100);
     
-    console.log('✅ === EDITOR ABIERTO EXITOSAMENTE ===');
+    console.log(`🖊️ Abriendo editor para dirección ${addressIndex + 1}: "${address.address}"`);
 }
 
 function closeAddressEditModal() {
@@ -1476,69 +1420,6 @@ function forceInitAddressModal() {
     }
 }
 
-// Función para verificar el flujo correcto de edición
-function checkEditWorkflow() {
-    console.log('🔍 === VERIFICANDO FLUJO DE EDICIÓN ===');
-    
-    console.log('📋 Estado de variables globales:');
-    console.log(`   - currentZones: ${currentZones ? currentZones.length + ' zonas' : 'null'}`);
-    console.log(`   - currentEditingZone: ${currentEditingZone ? 'Zona ' + currentEditingZone.id : 'null'}`);
-    console.log(`   - currentEditingAddressIndex: ${currentEditingAddressIndex}`);
-    
-    if (!currentZones || currentZones.length === 0) {
-        console.log('❌ PROBLEMA: No hay zonas cargadas');
-        console.log('💡 SOLUCIÓN: Carga un archivo Excel/TXT primero');
-        return { status: 'no_zones', solution: 'Carga un archivo Excel/TXT primero' };
-    }
-    
-    console.log(`✅ Hay ${currentZones.length} zonas cargadas`);
-    
-    if (!currentEditingZone) {
-        console.log('❌ PROBLEMA: No hay zona siendo editada');
-        console.log('💡 SOLUCIÓN: Abre el editor de una zona primero');
-        console.log('🔧 PASOS:');
-        console.log('   1. Ve a la sección "Direcciones Ordenadas por Zonas"');
-        console.log('   2. Haz clic en "✏️ Editar" de cualquier zona');
-        console.log('   3. Luego podrás editar direcciones individuales');
-        return { 
-            status: 'no_editing_zone', 
-            solution: 'Abre el editor de zona primero',
-            availableZones: currentZones.map(z => `Zona ${z.id}`)
-        };
-    }
-    
-    console.log(`✅ Editando Zona ${currentEditingZone.id} con ${currentEditingZone.addresses.length} direcciones`);
-    
-    console.log('🎯 FLUJO CORRECTO VERIFICADO');
-    console.log('💡 Puedes editar direcciones haciendo clic en ✏️ dentro del editor de zona');
-    
-    return {
-        status: 'ok',
-        currentZone: currentEditingZone.id,
-        addressCount: currentEditingZone.addresses.length
-    };
-}
-
-// Función para guiar al usuario al flujo correcto
-function guideToCorrectWorkflow() {
-    const status = checkEditWorkflow();
-    
-    if (status.status === 'no_zones') {
-        alert(`❌ PROBLEMA DETECTADO: No hay zonas cargadas\n\n🔧 SOLUCIÓN:\n1. Ve a la sección "Cargar Archivo"\n2. Selecciona tu archivo Excel (.xlsx) o texto (.txt)\n3. Haz clic en "📂 Cargar Archivo"\n4. Luego podrás editar direcciones`);
-        return false;
-    }
-    
-    if (status.status === 'no_editing_zone') {
-        alert(`❌ PROBLEMA DETECTADO: No hay zona siendo editada\n\n🔧 SOLUCIÓN PASO A PASO:\n1. Ve a la sección "Direcciones Ordenadas por Zonas"\n2. Busca cualquier zona (ej: ${status.availableZones[0]})\n3. Haz clic en el botón "✏️ Editar" de esa zona\n4. Se abrirá el editor de zona\n5. Dentro del editor, haz clic en "✏️" de cualquier dirección\n\n💡 IMPORTANTE: Primero abrir editor de ZONA, luego editor de DIRECCIÓN`);
-        return false;
-    }
-    
-    if (status.status === 'ok') {
-        alert(`✅ FLUJO CORRECTO DETECTADO\n\n🎯 Estás editando: Zona ${status.currentZone}\n📍 Direcciones disponibles: ${status.addressCount}\n\n💡 Para editar una dirección:\n1. Busca la dirección en la lista del editor\n2. Haz clic en el botón "✏️" de esa dirección\n3. Se abrirá el editor de coordenadas`);
-        return true;
-    }
-}
-
 // Función de debug para el editor de direcciones
 function debugAddressEditor() {
     console.log('🔍 === DEBUG EDITOR DE DIRECCIONES ===');
@@ -1703,8 +1584,6 @@ window.demonstrateZoneIdSystem = demonstrateZoneIdSystem; // Para ver cómo func
 window.debugAddressEditor = debugAddressEditor; // Para debugging del editor de direcciones
 window.testAddressSave = testAddressSave; // Para probar guardado de direcciones
 window.forceInitAddressModal = forceInitAddressModal; // Para forzar inicialización del modal
-window.checkEditWorkflow = checkEditWorkflow; // Para verificar el flujo de edición
-window.guideToCorrectWorkflow = guideToCorrectWorkflow; // Para guiar al usuario
 
 // ==========================================
 // SELECCIÓN MÚLTIPLE EN EL MAPA
