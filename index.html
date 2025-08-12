@@ -82,7 +82,7 @@
     <hr>
 
     <div id="manual-container">
-        <h2>Gestión Manual de Direcciones</h2>
+        <h2>Gestión Manual de Direcciones(Función Independiente)</h2>
         
         <!-- Sección para agregar a zonas existentes -->
         <div id="add-to-zone-section" style="display: none;">
@@ -206,8 +206,13 @@
                     <div id="zone-editor-list"></div>
                 </div>
                 <div class="zone-editor-actions">
-                    <button id="zone-editor-save" class="save-button">💾 Guardar Cambios</button>
-                    <button id="zone-editor-cancel" class="cancel-button">❌ Cancelar</button>
+                    <div class="primary-actions">
+                        <button id="zone-editor-save" class="save-button">💾 Guardar Cambios</button>
+                        <button id="zone-editor-cancel" class="cancel-button">❌ Cancelar</button>
+                    </div>
+                    <div class="zone-danger-actions">
+                        <button id="zone-editor-delete" class="delete-zone-button">🗑️ Eliminar Zona Completa</button>
+                    </div>
                 </div>
             </div>
         </div>

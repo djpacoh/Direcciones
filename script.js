@@ -213,6 +213,7 @@ function initializeZoneEditorElements() {
     elements.zoneEditorList = document.getElementById('zone-editor-list');
     elements.zoneEditorSave = document.getElementById('zone-editor-save');
     elements.zoneEditorCancel = document.getElementById('zone-editor-cancel');
+    elements.zoneEditorDelete = document.getElementById('zone-editor-delete');
 }
 
 function setupZoneEditor() {
@@ -233,6 +234,11 @@ function setupZoneEditor() {
     
     // Event listener para guardar cambios
     elements.zoneEditorSave.addEventListener('click', saveZoneChanges);
+    
+    // Event listener para eliminar zona completa
+    if (elements.zoneEditorDelete) {
+        elements.zoneEditorDelete.addEventListener('click', deleteCompleteZone);
+    }
     
     // Cerrar con la tecla Escape
     document.addEventListener('keydown', function(e) {
@@ -281,6 +287,9 @@ function openZoneEditor(zoneIndex) {
     
     // Marcar la zona como seleccionada en la lista de resultados
     markSelectedZone(zoneIndex);
+    
+    // Controlar estado del botón eliminar zona
+    updateDeleteZoneButtonState();
     
     // Mostrar el editor
     elements.zoneEditorOverlay.style.display = 'flex';
@@ -661,6 +670,101 @@ function saveZoneChanges() {
     
     // Mostrar confirmación
     alert(`✅ Cambios guardados exitosamente para la Zona ${currentEditingZone.id}`);
+}
+
+// Función para eliminar zona completa
+function deleteCompleteZone() {
+    if (!currentEditingZone || selectedZoneIndex === null) {
+        alert('❌ Error: No se pudo identificar la zona a eliminar.');
+        return;
+    }
+    
+    // Validación: No permitir eliminar si es la única zona
+    if (currentZones.length <= 1) {
+        alert('❌ No se puede eliminar la única zona restante.\n\n' +
+              '💡 Debe haber al menos una zona disponible. Si deseas empezar de cero, carga un nuevo archivo.');
+        return;
+    }
+    
+    const zoneToDelete = currentEditingZone;
+    const zoneId = zoneToDelete.id;
+    const addressCount = zoneToDelete.addresses.length;
+    
+    // Confirmación con detalles
+    const confirmDelete = confirm(
+        `⚠️ ¿ESTÁS SEGURO de que deseas ELIMINAR COMPLETAMENTE esta zona?\n\n` +
+        `🗂️ ZONA ${zoneId}\n` +
+        `📍 ${addressCount} direcciones serán eliminadas PERMANENTEMENTE\n` +
+        `📊 Direcciones: ${zoneToDelete.addresses.map(addr => addr.address.substring(0, 30)).join(', ')}${addressCount > 3 ? '...' : ''}\n\n` +
+        `❌ ESTA ACCIÓN NO SE PUEDE DESHACER\n\n` +
+        `¿Continuar con la eliminación?`
+    );
+    
+    if (!confirmDelete) {
+        console.log('🚫 Eliminación de zona cancelada por el usuario');
+        return;
+    }
+    
+    try {
+        // Eliminar la zona del array
+        currentZones.splice(selectedZoneIndex, 1);
+        
+        // Renumerar las zonas restantes para mantener secuencia
+        currentZones.forEach((zone, index) => {
+            zone.id = index + 1;
+        });
+        
+        console.log(`🗑️ Zona ${zoneId} eliminada exitosamente - ${addressCount} direcciones eliminadas`);
+        console.log(`📊 Zonas restantes: ${currentZones.length}`);
+        
+        // Actualizar todas las visualizaciones
+        updateZoneDisplay();
+        displayOnMap(currentZones);
+        updateAddToZoneSection();
+        updateSessionControls();
+        updateZoneViewSelector();
+        updateMapClickModeButton();
+        
+        // Cerrar el editor
+        closeZoneEditor();
+        
+        // Mostrar confirmación detallada
+        alert(`✅ ¡Zona eliminada exitosamente!\n\n` +
+              `🗑️ Zona ${zoneId} eliminada\n` +
+              `📍 ${addressCount} direcciones eliminadas\n` +
+              `📊 Zonas restantes: ${currentZones.length}\n\n` +
+              `Las zonas restantes han sido renumeradas automáticamente.`);
+        
+        // Si queda una sola zona, mostrar mensaje informativo
+        if (currentZones.length === 1) {
+            setTimeout(() => {
+                alert(`ℹ️ ATENCIÓN: Solo queda 1 zona.\n\n` +
+                      `Si eliminas la última zona, tendrás que cargar un nuevo archivo para continuar trabajando.`);
+            }, 1000);
+        }
+        
+    } catch (error) {
+        console.error('Error al eliminar zona:', error);
+        alert('❌ Error al eliminar la zona. Por favor intenta de nuevo.');
+    }
+}
+
+// Función para actualizar estado del botón eliminar zona
+function updateDeleteZoneButtonState() {
+    const deleteBtn = elements.zoneEditorDelete;
+    
+    if (!deleteBtn) return;
+    
+    // Deshabilitar si es la única zona
+    if (!currentZones || currentZones.length <= 1) {
+        deleteBtn.disabled = true;
+        deleteBtn.title = 'No se puede eliminar la única zona restante';
+        deleteBtn.textContent = '🚫 No Eliminar (Única Zona)';
+    } else {
+        deleteBtn.disabled = false;
+        deleteBtn.title = `Eliminar completamente esta zona con ${currentEditingZone?.addresses?.length || 0} direcciones`;
+        deleteBtn.textContent = '🗑️ Eliminar Zona Completa';
+    }
 }
 
 // Hacer las funciones accesibles globalmente para los botones HTML
