@@ -747,18 +747,10 @@ function deleteCompleteZone() {
         currentZones.splice(currentZoneIndex, 1);
         
         console.log(`🗑️ Zona ${zoneId} eliminada exitosamente (índice ${currentZoneIndex}) - ${addressCount} direcciones eliminadas`);
-        console.log(`📊 Zonas antes de renumerar: ${currentZones.length}`);
+        console.log(`📊 Zonas después de eliminación: ${currentZones.length}`);
         
-        // Renumerar las zonas restantes para mantener secuencia 1, 2, 3...
-        currentZones.forEach((zone, index) => {
-            const oldId = zone.id;
-            zone.id = index + 1;
-            if (oldId !== zone.id) {
-                console.log(`🔄 Renumerando: Zona ${oldId} → Zona ${zone.id}`);
-            }
-        });
-        
-        console.log(`✅ Zonas restantes después de renumerar: ${currentZones.map(z => `Zona ${z.id}`).join(', ')}`);
+        // NO renumerar - mantener IDs originales para estabilidad
+        console.log(`✅ Zonas restantes (IDs mantenidos): ${currentZones.map(z => `Zona ${z.id}`).join(', ')}`);
         
         // Actualizar todas las visualizaciones
         updateZoneDisplay();
@@ -776,12 +768,12 @@ function deleteCompleteZone() {
               currentZones.map(z => `Zona ${z.id}`).join(', ') : 'Ninguna';
               
         alert(`✅ ¡Zona eliminada exitosamente!\n\n` +
-              `🗑️ Zona ${zoneId} eliminada (era posición ${currentZoneIndex + 1})\n` +
+              `🗑️ Zona ${zoneId} eliminada\n` +
               `📍 ${addressCount} direcciones eliminadas\n` +
               `📊 Zonas restantes: ${currentZones.length}\n` +
               `🔢 Zonas actuales: ${remainingZonesList}\n\n` +
-              `✅ Las zonas han sido renumeradas automáticamente.\n` +
-              `🎯 Ahora puedes eliminar cualquier zona restante.`);
+              `✅ Los números de zona se mantienen estables.\n` +
+              `🆔 Al crear nuevas zonas se reutilizará el ID ${zoneId}.`);
         
         // Si queda una sola zona, mostrar mensaje informativo
         if (currentZones.length === 1) {
@@ -838,6 +830,31 @@ function findZoneIndexById(zoneId) {
     const index = currentZones.findIndex(zone => zone.id === zoneId);
     console.log(`🔍 findZoneIndexById(${zoneId}): ${index} (de ${currentZones.length} zonas)`);
     return index;
+}
+
+// Función para encontrar el próximo ID de zona disponible
+function getNextAvailableZoneId() {
+    if (!currentZones || currentZones.length === 0) {
+        console.log(`🆔 Próximo ID disponible: 1 (primera zona)`);
+        return 1;
+    }
+    
+    // Obtener todos los IDs existentes y ordenarlos
+    const existingIds = currentZones.map(zone => zone.id).sort((a, b) => a - b);
+    console.log(`🔍 IDs existentes: [${existingIds.join(', ')}]`);
+    
+    // Buscar el primer "hueco" en la secuencia
+    for (let i = 1; i <= existingIds.length + 1; i++) {
+        if (!existingIds.includes(i)) {
+            console.log(`🆔 Próximo ID disponible: ${i} (reutilizando hueco)`);
+            return i;
+        }
+    }
+    
+    // En caso de que no haya huecos, usar el siguiente después del máximo
+    const nextId = Math.max(...existingIds) + 1;
+    console.log(`🆔 Próximo ID disponible: ${nextId} (nuevo máximo)`);
+    return nextId;
 }
 
 // Función de debug para diagnosticar problemas de eliminación
@@ -920,12 +937,53 @@ function testDeleteZone() {
     return true;
 }
 
+// Función para mostrar ejemplo de gestión de IDs de zona
+function demonstrateZoneIdSystem() {
+    console.log('🧪 === DEMOSTRACIÓN DEL SISTEMA DE IDs ===');
+    
+    if (!currentZones || currentZones.length === 0) {
+        console.log('❌ No hay zonas cargadas. Carga un archivo primero.');
+        return;
+    }
+    
+    const existingIds = currentZones.map(z => z.id).sort((a, b) => a - b);
+    console.log(`📋 Zonas actuales: [${existingIds.join(', ')}]`);
+    
+    const nextId = getNextAvailableZoneId();
+    console.log(`🆔 Próximo ID que se asignará: ${nextId}`);
+    
+    // Simular eliminación de cada zona
+    existingIds.forEach(id => {
+        const tempZones = currentZones.filter(z => z.id !== id);
+        const tempIds = tempZones.map(z => z.id).sort((a, b) => a - b);
+        
+        // Calcular qué ID se asignaría después de eliminar esta zona
+        let tempNextId;
+        if (tempZones.length === 0) {
+            tempNextId = 1;
+        } else {
+            for (let i = 1; i <= tempIds.length + 1; i++) {
+                if (!tempIds.includes(i)) {
+                    tempNextId = i;
+                    break;
+                }
+            }
+        }
+        
+        console.log(`🗑️ Si eliminas Zona ${id}: quedarían [${tempIds.join(', ') || 'ninguna'}], próximo ID sería ${tempNextId}`);
+    });
+    
+    console.log('✅ Como ves, el sistema reutiliza IDs de manera inteligente');
+    return { currentIds: existingIds, nextId };
+}
+
 // Hacer las funciones accesibles globalmente para los botones HTML
 window.openZoneEditor = openZoneEditor;
 window.loadSelectedSession = loadSelectedSession;
 window.deleteSelectedSession = deleteSelectedSession;
 window.debugDeleteZoneState = debugDeleteZoneState; // Para debugging en consola
 window.testDeleteZone = testDeleteZone; // Para probar eliminación paso a paso
+window.demonstrateZoneIdSystem = demonstrateZoneIdSystem; // Para ver cómo funciona el sistema de IDs
 
 // ==========================================
 // SELECCIÓN MÚLTIPLE EN EL MAPA
@@ -1114,8 +1172,8 @@ function createNewZoneFromSelection() {
     
     if (!confirm(confirmMessage)) return;
     
-    // Crear nueva zona
-    const newZoneId = Math.max(...currentZones.map(z => z.id)) + 1;
+    // Crear nueva zona con ID inteligente
+    const newZoneId = getNextAvailableZoneId();
     const newZone = {
         id: newZoneId,
         addresses: [],
@@ -2358,8 +2416,8 @@ async function createNewZoneWithAddress(addressText, addressInput, zoneSelector)
             currentZones = [];
         }
         
-        // Crear nueva zona
-        const newZoneId = currentZones.length + 1;
+        // Crear nueva zona con ID inteligente
+        const newZoneId = getNextAvailableZoneId();
         const newZone = {
             id: newZoneId,
             addresses: [geocodedAddress],
@@ -3379,7 +3437,7 @@ function groupAddressesByZones(addresses, requestedZones, maxAddresses, minAddre
     // Crear exactamente las zonas pedidas
     for (let i = 0; i < requestedZones && unassigned.length > 0; i++) {
         const zone = {
-            id: i + 1,
+            id: getNextAvailableZoneId(),
             addresses: [],
             center: null
         };
@@ -3393,7 +3451,7 @@ function groupAddressesByZones(addresses, requestedZones, maxAddresses, minAddre
         // Asegurar que esté dentro de límites
         targetSize = Math.max(minAddresses, Math.min(maxAddresses, targetSize));
         
-        console.log(`Zona ${i + 1}: objetivo ${targetSize} direcciones`);
+        console.log(`Zona ${zone.id}: objetivo ${targetSize} direcciones`);
         
         // Seleccionar semilla (primera dirección o la más alejada)
         let seedIndex = 0;
