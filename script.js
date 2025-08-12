@@ -708,6 +708,14 @@ function deleteCompleteZone() {
     
     const zoneToDelete = currentEditingZone;
     const zoneId = zoneToDelete.id;
+    
+    // Validar que la zona tenga direcciones válidas
+    if (!zoneToDelete.addresses || !Array.isArray(zoneToDelete.addresses)) {
+        alert('❌ Error: La zona seleccionada no tiene direcciones válidas.');
+        console.error('Zona sin direcciones válidas:', zoneToDelete);
+        return;
+    }
+    
     const addressCount = zoneToDelete.addresses.length;
     
     console.log(`🎯 Intentando eliminar Zona ${zoneId} con ${addressCount} direcciones`);
@@ -726,12 +734,24 @@ function deleteCompleteZone() {
     
     console.log(`🎯 Zona encontrada: ID=${zoneId}, índice actual=${currentZoneIndex}`);
     
+    // Crear preview seguro de las direcciones
+    const addressPreview = zoneToDelete.addresses
+        .filter(addr => addr && addr.address) // Filtrar direcciones válidas
+        .slice(0, 3) // Máximo 3 direcciones en el preview
+        .map(addr => {
+            const address = addr.address.toString().trim();
+            return address.length > 30 ? address.substring(0, 30) + '...' : address;
+        })
+        .join(', ');
+    
+    const moreAddresses = addressCount > 3 ? ` (+${addressCount - 3} más)` : '';
+    
     // Confirmación con detalles y debug info
     const confirmDelete = confirm(
         `⚠️ ¿ESTÁS SEGURO de que deseas ELIMINAR COMPLETAMENTE esta zona?\n\n` +
         `🗂️ ZONA ${zoneId} (posición actual: ${currentZoneIndex + 1} de ${currentZones.length})\n` +
         `📍 ${addressCount} direcciones serán eliminadas PERMANENTEMENTE\n` +
-        `📊 Direcciones: ${zoneToDelete.addresses.map(addr => addr.address.substring(0, 30)).join(', ')}${addressCount > 3 ? '...' : ''}\n\n` +
+        `📊 Direcciones: ${addressPreview}${moreAddresses}\n\n` +
         `❌ ESTA ACCIÓN NO SE PUEDE DESHACER\n\n` +
         `ℹ️ Zonas actuales: ${currentZones.map(z => `Zona ${z.id}`).join(', ')}\n\n` +
         `¿Continuar con la eliminación?`
