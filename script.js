@@ -257,6 +257,12 @@ function openZoneEditor(zoneIndex) {
     selectedZoneIndex = zoneIndex;
     currentEditingZone = currentZones[zoneIndex];
     
+    // Guardar también el ID de la zona para referencia futura
+    if (currentEditingZone) {
+        currentEditingZone._originalId = currentEditingZone.id;
+        console.log(`🖊️ Abriendo editor para Zona ${currentEditingZone.id} (índice ${zoneIndex})`);
+    }
+    
     // Crear copia de seguridad de los datos originales
     originalZoneData = JSON.parse(JSON.stringify(currentEditingZone));
     
@@ -291,6 +297,8 @@ function openZoneEditor(zoneIndex) {
     // Controlar estado del botón eliminar zona
     updateDeleteZoneButtonState();
     
+    console.log(`🎯 Editor configurado para Zona ${currentEditingZone.id} con ${currentEditingZone.addresses.length} direcciones`);
+    
     // Mostrar el editor
     elements.zoneEditorOverlay.style.display = 'flex';
     
@@ -313,10 +321,17 @@ function markSelectedZone(zoneIndex) {
     // Limpiar selecciones anteriores
     clearSelectedZone();
     
+    // Verificar que el índice sea válido
+    if (zoneIndex < 0 || !currentZones || zoneIndex >= currentZones.length) {
+        console.warn(`⚠️ Índice de zona inválido para marcar: ${zoneIndex}/${currentZones?.length}`);
+        return;
+    }
+    
     // Marcar la zona actual como seleccionada
     const zoneElements = elements.sortedAddresses.querySelectorAll('.zone-item-clickable');
     if (zoneElements[zoneIndex]) {
         zoneElements[zoneIndex].classList.add('zone-selected');
+        console.log(`✅ Zona ${zoneIndex} marcada como seleccionada`);
     }
 }
 
@@ -674,7 +689,7 @@ function saveZoneChanges() {
 
 // Función para eliminar zona completa
 function deleteCompleteZone() {
-    if (!currentEditingZone || selectedZoneIndex === null) {
+    if (!currentEditingZone || !currentZones) {
         alert('❌ Error: No se pudo identificar la zona a eliminar.');
         return;
     }
@@ -690,13 +705,25 @@ function deleteCompleteZone() {
     const zoneId = zoneToDelete.id;
     const addressCount = zoneToDelete.addresses.length;
     
-    // Confirmación con detalles
+    // Buscar el índice actual de la zona por su ID (no usar selectedZoneIndex que puede estar obsoleto)
+    const currentZoneIndex = findZoneIndexById(zoneId);
+    
+    if (currentZoneIndex === -1) {
+        alert('❌ Error: No se pudo encontrar la zona a eliminar en la lista actual.');
+        console.error('❌ Zona no encontrada:', zoneId, 'Zonas disponibles:', currentZones.map(z => z.id));
+        return;
+    }
+    
+    console.log(`🎯 Zona encontrada: ID=${zoneId}, índice actual=${currentZoneIndex}`);
+    
+    // Confirmación con detalles y debug info
     const confirmDelete = confirm(
         `⚠️ ¿ESTÁS SEGURO de que deseas ELIMINAR COMPLETAMENTE esta zona?\n\n` +
-        `🗂️ ZONA ${zoneId}\n` +
+        `🗂️ ZONA ${zoneId} (posición actual: ${currentZoneIndex + 1} de ${currentZones.length})\n` +
         `📍 ${addressCount} direcciones serán eliminadas PERMANENTEMENTE\n` +
         `📊 Direcciones: ${zoneToDelete.addresses.map(addr => addr.address.substring(0, 30)).join(', ')}${addressCount > 3 ? '...' : ''}\n\n` +
         `❌ ESTA ACCIÓN NO SE PUEDE DESHACER\n\n` +
+        `ℹ️ Zonas actuales: ${currentZones.map(z => `Zona ${z.id}`).join(', ')}\n\n` +
         `¿Continuar con la eliminación?`
     );
     
@@ -706,16 +733,22 @@ function deleteCompleteZone() {
     }
     
     try {
-        // Eliminar la zona del array
-        currentZones.splice(selectedZoneIndex, 1);
+        // Eliminar la zona del array usando el índice actual correcto
+        currentZones.splice(currentZoneIndex, 1);
         
-        // Renumerar las zonas restantes para mantener secuencia
+        console.log(`🗑️ Zona ${zoneId} eliminada exitosamente (índice ${currentZoneIndex}) - ${addressCount} direcciones eliminadas`);
+        console.log(`📊 Zonas antes de renumerar: ${currentZones.length}`);
+        
+        // Renumerar las zonas restantes para mantener secuencia 1, 2, 3...
         currentZones.forEach((zone, index) => {
+            const oldId = zone.id;
             zone.id = index + 1;
+            if (oldId !== zone.id) {
+                console.log(`🔄 Renumerando: Zona ${oldId} → Zona ${zone.id}`);
+            }
         });
         
-        console.log(`🗑️ Zona ${zoneId} eliminada exitosamente - ${addressCount} direcciones eliminadas`);
-        console.log(`📊 Zonas restantes: ${currentZones.length}`);
+        console.log(`✅ Zonas restantes después de renumerar: ${currentZones.map(z => `Zona ${z.id}`).join(', ')}`);
         
         // Actualizar todas las visualizaciones
         updateZoneDisplay();
@@ -728,12 +761,17 @@ function deleteCompleteZone() {
         // Cerrar el editor
         closeZoneEditor();
         
-        // Mostrar confirmación detallada
+        // Mostrar confirmación detallada con información de debug
+        const remainingZonesList = currentZones.length > 0 ? 
+              currentZones.map(z => `Zona ${z.id}`).join(', ') : 'Ninguna';
+              
         alert(`✅ ¡Zona eliminada exitosamente!\n\n` +
-              `🗑️ Zona ${zoneId} eliminada\n` +
+              `🗑️ Zona ${zoneId} eliminada (era posición ${currentZoneIndex + 1})\n` +
               `📍 ${addressCount} direcciones eliminadas\n` +
-              `📊 Zonas restantes: ${currentZones.length}\n\n` +
-              `Las zonas restantes han sido renumeradas automáticamente.`);
+              `📊 Zonas restantes: ${currentZones.length}\n` +
+              `🔢 Zonas actuales: ${remainingZonesList}\n\n` +
+              `✅ Las zonas han sido renumeradas automáticamente.\n` +
+              `🎯 Ahora puedes eliminar cualquier zona restante.`);
         
         // Si queda una sola zona, mostrar mensaje informativo
         if (currentZones.length === 1) {
@@ -765,6 +803,18 @@ function updateDeleteZoneButtonState() {
         deleteBtn.title = `Eliminar completamente esta zona con ${currentEditingZone?.addresses?.length || 0} direcciones`;
         deleteBtn.textContent = '🗑️ Eliminar Zona Completa';
     }
+}
+
+// Función helper para buscar zona por ID
+function findZoneById(zoneId) {
+    if (!currentZones) return null;
+    return currentZones.find(zone => zone.id === zoneId);
+}
+
+// Función helper para buscar índice de zona por ID
+function findZoneIndexById(zoneId) {
+    if (!currentZones) return -1;
+    return currentZones.findIndex(zone => zone.id === zoneId);
 }
 
 // Hacer las funciones accesibles globalmente para los botones HTML
