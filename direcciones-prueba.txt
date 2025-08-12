@@ -1,0 +1,30 @@
+Carrer de Balmes 150, Barcelona
+Passeig de Gràcia 92, Barcelona
+Carrer de Muntaner 245, Barcelona
+Avinguda Diagonal 640, Barcelona
+Carrer Gran de Gràcia 25, Barcelona
+Plaça Catalunya 21, Barcelona
+Rambla de Catalunya 78, Barcelona
+Carrer Aragó 565, Barcelona
+Carrer València 302, Barcelona
+Carrer Provença 490, Barcelona
+Carrer Major de Sarrià 134, Barcelona
+Avinguda Tibidabo 12, Barcelona
+Carrer Girona 45, Girona
+Plaça de la Independència 1, Girona
+Carrer Santa Clara 26, Girona
+Avinguda de França 15, Girona
+Carrer del Carme 18, Girona
+Passeig Arqueològic 25, Tarragona
+Rambla Nova 46, Tarragona
+Carrer Major 35, Tarragona
+Plaça de la Font 8, Tarragona
+Avinguda Catalunya 67, Tarragona
+Carrer Acadèmia 28, Lleida
+Plaça Sant Joan 15, Lleida
+Carrer Major 89, Lleida
+Avinguda Prat de la Riba 54, Lleida
+Carrer del Carme 78, Lleida
+Carrer Sant Pau 123, Sabadell
+Rambla de Sabadell 67, Sabadell
+Plaça de Sant Roc 5, Sabadell

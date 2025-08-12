@@ -2340,16 +2340,78 @@ hr {
     transform: scale(1.1);
 }
 
-/* Estados minimizados de paneles */
+/* Estados minimizados y maximizados de paneles */
+
+/* Estado minimizado - Solo muestra una barra con el título */
 .minimized {
-    transform: scale(0.1);
-    opacity: 0.3;
-    pointer-events: none;
+    height: 50px !important;
+    width: 200px !important;
+    overflow: hidden !important;
+    opacity: 0.8 !important;
+    pointer-events: auto !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .minimized:hover {
-    transform: scale(0.15);
-    opacity: 0.6;
+    opacity: 1 !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+.minimized h1, .minimized h2, .minimized h3 {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.2 !important;
+}
+
+.minimized > *:not(h1):not(h2):not(h3):not(.panel-toggle) {
+    display: none !important;
+}
+
+/* Estado maximizado - Ocupa más espacio */
+.maximized#excel-container {
+    width: 450px !important;
+    max-height: calc(100vh - 40px) !important;
+    overflow-y: auto !important;
+}
+
+.maximized#manual-container {
+    width: 420px !important;
+    max-height: calc(100vh - 40px) !important;
+    overflow-y: auto !important;
+}
+
+.maximized#output-container {
+    width: 800px !important;
+    max-height: 500px !important;
+    overflow-y: auto !important;
+}
+
+/* Posición del botón toggle mejorado */
+.panel-toggle {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 16px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 1003 !important;
+    transition: all 0.2s ease !important;
+    font-weight: bold !important;
+    line-height: 1 !important;
+}
+
+.panel-toggle:hover {
+    background: rgba(0, 0, 0, 0.9) !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
 }
 
 /* --- INDICADORES DE ZONA EN EL MAPA --- */
@@ -2394,32 +2456,309 @@ hr {
         grid-template-columns: 1fr;
     }
     
-    /* Ajustes para móviles en el layout flotante */
+    /* Ajustes para móviles en el layout flotante - Sin superposición */
     #excel-container {
-        width: calc(100vw - 40px);
-        top: 80px;
+        top: 70px !important;
+        left: 10px !important;
+        width: calc(100vw - 20px) !important;
+        right: auto !important;
     }
     
     #manual-container {
-        width: calc(100vw - 40px);
-        top: 50%;
-        right: 20px;
-        transform: translateY(-50%);
+        top: 320px !important; /* Debajo del panel excel */
+        left: 10px !important;
+        width: calc(100vw - 20px) !important;
+        right: auto !important;
+        transform: none !important;
+    }
+    
+    #output-container {
+        bottom: 60px !important; /* Espacio para el control de transparencia */
+        left: 10px !important;
+        width: calc(100vw - 20px) !important;
+        transform: none !important;
     }
     
     #transparency-controller {
-        bottom: 10px;
-        right: 10px;
-        padding: 10px 15px;
+        bottom: 10px !important;
+        right: 10px !important;
+        left: auto !important;
+        padding: 8px 12px !important;
+        font-size: 12px !important;
     }
     
     #transparency-slider {
-        width: 80px;
+        width: 60px !important;
     }
     
     h1 {
-        font-size: 1.2em;
-        padding: 10px 20px;
-        top: 10px;
+        font-size: 1.2em !important;
+        padding: 8px 15px !important;
+        top: 10px !important;
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
     }
+    
+    /* Paneles minimizados en móvil */
+    .minimized {
+        width: 150px !important;
+        height: 40px !important;
+    }
+    
+    /* Paneles maximizados en móvil */
+    .maximized#excel-container,
+    .maximized#manual-container,
+    .maximized#output-container {
+        width: calc(100vw - 20px) !important;
+        max-height: calc(100vh - 100px) !important;
+    }
+}
+
+/* ==========================================
+   ESTILOS CRÍTICOS PARA INTERFAZ FLOTANTE
+   ========================================== */
+
+/* MAPA: Debe estar SIEMPRE por debajo de todo */
+#map {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 0 !important; /* Valor más bajo para estar atrás */
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* TÍTULO: Debe estar por encima del mapa */
+h1 {
+    z-index: 1001 !important;
+    color: white !important;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8) !important;
+    background: rgba(0,0,0,0.5) !important;
+    padding: 10px 20px !important;
+    border-radius: 10px !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+/* PANELES FLOTANTES: Posicionamiento específico sin superposición */
+
+/* PANEL DE CARGA DE ARCHIVOS - Esquina superior izquierda */
+#excel-container {
+    position: fixed !important;
+    top: 20px !important;
+    left: 20px !important;
+    width: 350px !important;
+    max-width: calc(100vw - 40px) !important;
+    z-index: 1001 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    color: #333 !important;
+}
+
+/* PANEL DE GESTIÓN MANUAL - Esquina superior derecha */
+#manual-container {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 320px !important;
+    max-width: calc(100vw - 40px) !important;
+    z-index: 1001 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    color: #333 !important;
+}
+
+/* PANEL DE RESULTADOS - Parte inferior centrado */
+#output-container {
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 600px !important;
+    max-width: calc(100vw - 40px) !important;
+    max-height: 300px !important;
+    z-index: 1001 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    overflow-y: auto !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    color: #333 !important;
+}
+
+/* MEJORAS DE LEGIBILIDAD Y CONTRASTE */
+
+/* Títulos de paneles - Más visibles */
+#excel-container h1, #excel-container h2, #excel-container h3,
+#manual-container h1, #manual-container h2, #manual-container h3,
+#output-container h1, #output-container h2, #output-container h3 {
+    color: #1976d2 !important;
+    margin-top: 0 !important;
+    margin-bottom: 15px !important;
+    text-shadow: none !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid #e3f2fd !important;
+    padding-bottom: 8px !important;
+}
+
+/* Texto general en paneles */
+#excel-container p, #excel-container div, #excel-container span,
+#manual-container p, #manual-container div, #manual-container span,
+#output-container p, #output-container div, #output-container span {
+    color: #333 !important;
+    text-shadow: none !important;
+    line-height: 1.4 !important;
+}
+
+/* Labels y texto de formularios - Más contraste */
+#excel-container label, #manual-container label, #output-container label {
+    color: #1976d2 !important;
+    font-weight: 600 !important;
+    display: inline-block !important;
+    margin-bottom: 5px !important;
+}
+
+/* Botones en paneles - Más visibles */
+#excel-container button, #manual-container button, #output-container button {
+    background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+    color: white !important;
+    text-shadow: none !important;
+    border: none !important;
+    padding: 10px 15px !important;
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+}
+
+#excel-container button:hover, #manual-container button:hover, #output-container button:hover {
+    background: linear-gradient(135deg, #1976D2, #1565C0) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+}
+
+/* Elementos de entrada más visibles */
+#excel-container input, #excel-container textarea, #excel-container select,
+#manual-container input, #manual-container textarea, #manual-container select,
+#output-container input, #output-container textarea, #output-container select {
+    background: rgba(255, 255, 255, 0.98) !important;
+    border: 2px solid #e0e0e0 !important;
+    color: #333 !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    font-size: 14px !important;
+    transition: all 0.2s ease !important;
+}
+
+#excel-container input:focus, #excel-container textarea:focus, #excel-container select:focus,
+#manual-container input:focus, #manual-container textarea:focus, #manual-container select:focus,
+#output-container input:focus, #output-container textarea:focus, #output-container select:focus {
+    background: rgba(255, 255, 255, 1) !important;
+    border-color: #2196F3 !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1) !important;
+}
+
+/* Contenedores de información especiales */
+#info-container {
+    background: rgba(227, 242, 253, 0.98) !important;
+    border: 1px solid #2196F3 !important;
+    color: #1976d2 !important;
+    border-radius: 8px !important;
+    padding: 15px !important;
+    margin: 15px 0 !important;
+}
+
+/* Lista de resultados mejorada */
+#sorted-addresses {
+    background: rgba(248, 249, 250, 0.95) !important;
+    border-radius: 8px !important;
+    padding: 15px !important;
+    max-height: 250px !important;
+    overflow-y: auto !important;
+    border: 1px solid #e0e0e0 !important;
+}
+
+#sorted-addresses li {
+    color: #333 !important;
+    padding: 8px 0 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.1) !important;
+    transition: background-color 0.2s ease !important;
+}
+
+#sorted-addresses li:hover {
+    background-color: rgba(33, 150, 243, 0.05) !important;
+    border-radius: 4px !important;
+}
+
+/* CONTROLES DE TRANSPARENCIA: Por encima de todo */
+#transparency-controller {
+    z-index: 1002 !important;
+}
+
+/* CONTROLES DE NAVEGACIÓN: Por encima de todo */
+.floating-control {
+    z-index: 1002 !important;
+}
+
+/* INDICADORES DE ZONA: Por encima de todo */
+.zone-indicator {
+    z-index: 1001 !important;
+}
+
+/* MODALES: Deben estar en la capa más alta */
+.session-modal-overlay,
+#zone-editor-overlay {
+    z-index: 10000 !important;
+}
+
+/* Asegurar que elementos de entrada sean visibles */
+input, textarea, select {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid #ccc !important;
+    color: #333 !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    background: rgba(255, 255, 255, 1) !important;
+    border-color: #2196F3 !important;
+    outline: none !important;
+    box-shadow: 0 0 5px rgba(33, 150, 243, 0.3) !important;
+}
+
+/* Lista de resultados */
+#sorted-addresses {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 5px !important;
+    padding: 10px !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+}
+
+#sorted-addresses li {
+    color: #333 !important;
+    padding: 5px 0 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.1) !important;
+}
+
+/* Mejorar visibilidad de info container */
+#info-container {
+    background: rgba(227, 242, 253, 0.95) !important;
+    color: #333 !important;
 }
