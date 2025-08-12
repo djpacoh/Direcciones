@@ -1884,14 +1884,20 @@ async function onMapClickAddPoint(e) {
             return;
         }
         
-        // Crear objeto de dirección
+        // Crear objeto de dirección compatible con el sistema
+        const addressText = address.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        
         const newAddress = {
-            original: address.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-            formatted: address.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            address: addressText,           // Propiedad principal que usa el sistema
+            original: addressText,          // Para compatibilidad
+            formatted: addressText,         // Para compatibilidad
             lat: lat,
             lng: lng,
             confidence: address.importance || 0.5,
-            manual: true // Marcar como añadida manualmente
+            manual: true,                   // Marcar como añadida manualmente
+            source: 'manual_map_click',     // Fuente de la dirección
+            display_name: address.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            isDefault: false                // Es geocodificación precisa
         };
         
         // Agregar a la zona más cercana
@@ -1900,7 +1906,7 @@ async function onMapClickAddPoint(e) {
         // Recalcular centro de la zona
         nearestZone.center = calculateZoneCenter(nearestZone.addresses);
         
-        console.log(`➕ Punto agregado a Zona ${nearestZone.id}: ${newAddress.formatted}`);
+        console.log(`➕ Punto agregado a Zona ${nearestZone.id}: ${newAddress.address}`);
         
         // Actualizar visualizaciones
         updateZoneDisplay();
@@ -1914,7 +1920,7 @@ async function onMapClickAddPoint(e) {
         // Mostrar confirmación
         showTemporaryMessage(
             `✅ ¡Punto agregado exitosamente!\n\n` +
-            `📍 Dirección: ${newAddress.formatted.substring(0, 50)}${newAddress.formatted.length > 50 ? '...' : ''}\n` +
+            `📍 Dirección: ${newAddress.address.substring(0, 50)}${newAddress.address.length > 50 ? '...' : ''}\n` +
             `📦 Zona ${nearestZone.id}: ${nearestZone.addresses.length} direcciones totales`,
             4000
         );
@@ -1929,24 +1935,33 @@ async function onMapClickAddPoint(e) {
 // Función de geocodificación inversa usando Nominatim
 async function reverseGeocode(lat, lng) {
     try {
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-            {
-                headers: {
-                    'User-Agent': 'OrdenarDirecciones/1.0'
-                }
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+        console.log(`🔍 Geocodificando: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'OrdenarDirecciones/1.0'
             }
-        );
+        });
         
         if (!response.ok) {
-            throw new Error('Error en la respuesta de geocodificación');
+            throw new Error(`HTTP Error: ${response.status}`);
         }
         
         const data = await response.json();
+        
+        console.log('🎯 Geocodificación exitosa:', data.display_name);
+        
+        // Verificar que tenemos una respuesta válida
+        if (!data.display_name && !data.address) {
+            console.warn('⚠️ Respuesta de geocodificación vacía');
+            return null;
+        }
+        
         return data;
         
     } catch (error) {
-        console.error('Error en geocodificación inversa:', error);
+        console.error('❌ Error en geocodificación inversa:', error);
         return null;
     }
 }
@@ -2057,45 +2072,70 @@ function updateAddToZoneSection() {
     
     if (!addToZoneSection || !zoneSelector) return;
     
-    // Mostrar sección solo si hay zonas disponibles
+    // Mostrar sección siempre (para permitir crear primera zona)
+    addToZoneSection.style.display = 'block';
+    
+    // Poblar selector de zonas
+    zoneSelector.innerHTML = '<option value="">Seleccionar opción...</option>';
+    
+    // Agregar opción para crear nueva zona
+    const newZoneOption = document.createElement('option');
+    newZoneOption.value = 'new-zone';
+    newZoneOption.textContent = '🆕 Crear Nueva Zona';
+    newZoneOption.style.fontWeight = 'bold';
+    newZoneOption.style.color = '#2196f3';
+    zoneSelector.appendChild(newZoneOption);
+    
+    // Agregar zonas existentes si las hay
     if (currentZones && currentZones.length > 0) {
-        addToZoneSection.style.display = 'block';
+        // Separador visual
+        const separatorOption = document.createElement('option');
+        separatorOption.disabled = true;
+        separatorOption.textContent = '--- Zonas Existentes ---';
+        separatorOption.style.fontStyle = 'italic';
+        zoneSelector.appendChild(separatorOption);
         
-        // Poblar selector de zonas
-        zoneSelector.innerHTML = '<option value="">Seleccionar zona...</option>';
         currentZones.forEach((zone, index) => {
             const option = document.createElement('option');
             option.value = index;
             option.textContent = `Zona ${zone.id} (${zone.addresses.length} direcciones)`;
             zoneSelector.appendChild(option);
         });
-        
-        // Asegurar que el reconocimiento de voz funcione para el nuevo campo
-        const micButton = document.querySelector('[data-target="new-zone-address"]');
-        if (micButton) {
-            setupVoiceRecognitionForElement(micButton);
-        }
-    } else {
-        addToZoneSection.style.display = 'none';
     }
+    
+    // Asegurar que el reconocimiento de voz funcione para el nuevo campo
+    const micButton = document.querySelector('[data-target="new-zone-address"]');
+    if (micButton) {
+        setupVoiceRecognitionForElement(micButton);
+    }
+    
+    console.log('📋 Sección agregar dirección actualizada - Zonas:', currentZones ? currentZones.length : 0);
 }
 
-// Función para agregar dirección a zona existente
+// Función para agregar dirección a zona existente o crear nueva zona
 async function addAddressToExistingZone() {
     const zoneSelector = document.getElementById('zone-selector');
     const addressInput = document.getElementById('new-zone-address');
     
     if (!zoneSelector || !addressInput) return;
     
-    const selectedZoneIndex = parseInt(zoneSelector.value);
+    const selectedValue = zoneSelector.value;
     const addressText = addressInput.value.trim();
     
-    if (isNaN(selectedZoneIndex) || !addressText) {
-        alert('❌ Por favor selecciona una zona e ingresa una dirección.');
+    if (!selectedValue || !addressText) {
+        alert('❌ Por favor selecciona una opción e ingresa una dirección.');
         return;
     }
     
-    if (!currentZones || !currentZones[selectedZoneIndex]) {
+    // Si se selecciona crear nueva zona
+    if (selectedValue === 'new-zone') {
+        await createNewZoneWithAddress(addressText, addressInput, zoneSelector);
+        return;
+    }
+    
+    // Agregar a zona existente
+    const selectedZoneIndex = parseInt(selectedValue);
+    if (isNaN(selectedZoneIndex) || !currentZones || !currentZones[selectedZoneIndex]) {
         alert('❌ Error: Zona no encontrada.');
         return;
     }
@@ -2142,6 +2182,63 @@ async function addAddressToExistingZone() {
         hideProgress();
         console.error('Error al agregar dirección:', error);
         alert('❌ Error al agregar la dirección. Inténtalo de nuevo.');
+    }
+}
+
+// Función para crear nueva zona con una dirección
+async function createNewZoneWithAddress(addressText, addressInput, zoneSelector) {
+    try {
+        // Geocodificar la dirección
+        showProgress(0, 'Creando nueva zona...');
+        
+        const geocodedAddress = await geocodeAddress(addressText);
+        if (!geocodedAddress) {
+            hideProgress();
+            alert('❌ No se pudo geocodificar la dirección. Verifica que sea correcta.');
+            return;
+        }
+        
+        // Inicializar currentZones si no existe
+        if (!currentZones) {
+            currentZones = [];
+        }
+        
+        // Crear nueva zona
+        const newZoneId = currentZones.length + 1;
+        const newZone = {
+            id: newZoneId,
+            addresses: [geocodedAddress],
+            center: {
+                lat: geocodedAddress.lat,
+                lng: geocodedAddress.lng
+            }
+        };
+        
+        // Agregar la nueva zona
+        currentZones.push(newZone);
+        
+        console.log(`🆕 Nueva zona creada - Zona ${newZoneId} con dirección: ${addressText}`);
+        
+        // Actualizar todas las visualizaciones
+        updateZoneDisplay();
+        displayOnMapPreservingZoom(currentZones);
+        updateAddToZoneSection(); // Actualizar con la nueva zona
+        updateSessionControls(); 
+        updateZoneViewSelector();
+        updateMapClickModeButton(); // Habilitar modo agregar puntos si estaba deshabilitado
+        
+        // Limpiar campos
+        addressInput.value = '';
+        zoneSelector.value = '';
+        
+        hideProgress();
+        
+        alert(`✅ ¡Nueva zona creada exitosamente!\n\n🆕 Zona ${newZoneId} creada\n📍 Dirección: ${addressText}`);
+        
+    } catch (error) {
+        console.error('Error al crear nueva zona:', error);
+        hideProgress();
+        alert('❌ Error al crear nueva zona. Inténtalo de nuevo.');
     }
 }
 
@@ -4006,5 +4103,32 @@ function simplifyAddress(address) {
     console.log(`Dirección simplificada: "${simplified}"`);
     return simplified;
 }
+
+// ==========================================
+// INICIALIZACIÓN
+// ==========================================
+
+// Inicializar la aplicación cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Inicializando aplicación...');
+    
+    // Configurar elementos DOM
+    setupElements();
+    
+    // Configurar event listeners
+    attachEventListeners();
+    
+    // Configurar editor de zona
+    setupZoneEditor();
+    
+    // Configurar reconocimiento de voz
+    setupVoiceRecognition();
+    
+    // Actualizar secciones para mostrar opción de crear nueva zona
+    updateAddToZoneSection();
+    updateMapClickModeButton();
+    
+    console.log('✅ Aplicación inicializada correctamente');
+});
 
 console.log('Script de Ordenar Direcciones cargado correctamente');

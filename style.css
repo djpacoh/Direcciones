@@ -1851,3 +1851,46 @@ hr {
         min-width: 0;
     }
 }
+
+/* --- SELECTOR DE ZONAS CON NUEVA ZONA --- */
+#zone-selector {
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    padding: 12px;
+    font-size: 14px;
+    background: white;
+    transition: all 0.3s;
+}
+
+#zone-selector:focus {
+    border-color: #2196f3;
+    box-shadow: 0 0 8px rgba(33, 150, 243, 0.3);
+    outline: none;
+}
+
+/* Estilo específico para la opción Nueva Zona */
+#zone-selector option[value="new-zone"] {
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    font-weight: bold !important;
+    color: #1976d2 !important;
+    padding: 8px !important;
+}
+
+/* Separador visual */
+#zone-selector option:disabled {
+    background: #f5f5f5;
+    color: #999;
+    font-style: italic;
+    text-align: center;
+}
+
+/* Opciones de zonas existentes */
+#zone-selector option:not([value=""]):not([value="new-zone"]):not(:disabled) {
+    padding: 6px;
+    color: #333;
+}
+
+/* Efecto hover para opciones */
+#zone-selector option:hover:not(:disabled) {
+    background-color: #f0f0f0;
+}
