@@ -1707,311 +1707,6 @@ window.checkEditWorkflow = checkEditWorkflow; // Para verificar el flujo de edic
 window.guideToCorrectWorkflow = guideToCorrectWorkflow; // Para guiar al usuario
 
 // ==========================================
-// CONTROLES DE TRANSPARENCIA E INTERFAZ FLOTANTE
-// ==========================================
-
-function initializeTransparencyController() {
-    const slider = document.getElementById('transparency-slider');
-    const valueDisplay = document.getElementById('transparency-value');
-    
-    if (!slider || !valueDisplay) {
-        console.warn('⚠️ Elementos de transparencia no encontrados');
-        return;
-    }
-    
-    // Aplicar transparencia inicial
-    updateTransparency(slider.value);
-    
-    // Evento para cambio de transparencia
-    slider.addEventListener('input', function() {
-        const value = this.value;
-        updateTransparency(value);
-        valueDisplay.textContent = value + '%';
-    });
-    
-    console.log('🎭 Controlador de transparencia inicializado');
-}
-
-function updateTransparency(value) {
-    // Convertir el valor del slider (0-100) a opacidad (0.1-1.0)
-    const opacity = Math.max(0.1, value / 100);
-    
-    // Aplicar transparencia a todos los elementos con la clase transparency-target
-    const targets = document.querySelectorAll('.transparency-target');
-    targets.forEach(target => {
-        target.style.background = target.style.background.replace(/rgba?\([^)]+\)/, '') || '';
-        
-        // Aplicar nueva transparencia basada en el elemento
-        if (target.id === 'excel-container' || target.id === 'manual-container' || target.id === 'output-container') {
-            target.style.background = `rgba(255, 255, 255, ${opacity})`;
-        }
-    });
-    
-    console.log(`🎭 Transparencia actualizada: ${value}% (opacidad: ${opacity})`);
-}
-
-// Función para alternar visibilidad de paneles
-function togglePanel(panelId) {
-    const panel = document.getElementById(panelId);
-    const toggleBtn = panel.querySelector('.panel-toggle');
-    
-    if (!panel) return;
-    
-    if (panel.classList.contains('minimized')) {
-        // Restaurar panel
-        panel.classList.remove('minimized');
-        toggleBtn.textContent = '−';
-        console.log(`📖 Panel ${panelId} restaurado`);
-    } else {
-        // Minimizar panel
-        panel.classList.add('minimized');
-        toggleBtn.textContent = '+';
-        console.log(`📕 Panel ${panelId} minimizado`);
-    }
-}
-
-// Función para mostrar/ocultar todos los paneles
-function toggleAllPanels() {
-    const panels = document.querySelectorAll('.transparency-target');
-    const anyVisible = Array.from(panels).some(panel => !panel.classList.contains('minimized'));
-    
-    panels.forEach(panel => {
-        const toggleBtn = panel.querySelector('.panel-toggle');
-        if (anyVisible) {
-            panel.classList.add('minimized');
-            if (toggleBtn) toggleBtn.textContent = '+';
-        } else {
-            panel.classList.remove('minimized');
-            if (toggleBtn) toggleBtn.textContent = '−';
-        }
-    });
-    
-    console.log(`🎯 Todos los paneles ${anyVisible ? 'minimizados' : 'restaurados'}`);
-}
-
-// Función para crear indicador de zona
-function createZoneIndicator(zoneCount) {
-    // Remover indicador existente si existe
-    const existing = document.getElementById('zone-indicator');
-    if (existing) {
-        existing.remove();
-    }
-    
-    if (zoneCount > 0) {
-        const indicator = document.createElement('div');
-        indicator.id = 'zone-indicator';
-        indicator.className = 'zone-indicator';
-        
-        // Información más detallada
-        let totalAddresses = 0;
-        if (currentZones && currentZones.length > 0) {
-            totalAddresses = currentZones.reduce((sum, zone) => sum + zone.addresses.length, 0);
-        }
-        
-        indicator.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 16px;">📍</span>
-                <div style="line-height: 1.2;">
-                    <div style="font-weight: bold;">${zoneCount} Zonas Activas</div>
-                    ${totalAddresses > 0 ? `<div style="font-size: 11px; opacity: 0.8;">${totalAddresses} direcciones total</div>` : ''}
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(indicator);
-        
-        // Animación de aparición
-        indicator.style.transform = 'translateY(-20px)';
-        indicator.style.opacity = '0';
-        setTimeout(() => {
-            indicator.style.transform = 'translateY(0)';
-            indicator.style.opacity = '1';
-        }, 100);
-    }
-}
-
-// Función para crear controles de navegación del mapa
-function createMapNavigationControls() {
-    // Evitar crear controles duplicados
-    const existing = document.getElementById('map-navigation');
-    if (existing) {
-        return;
-    }
-    
-    const navControls = document.createElement('div');
-    navControls.id = 'map-navigation';
-    navControls.className = 'floating-control';
-    navControls.style.cssText = `
-        top: 200px;
-        left: 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding: 10px;
-    `;
-    
-    navControls.innerHTML = `
-        <button onclick="fitAllZonesInMap()" title="Ver todas las zonas" style="
-            background: rgba(76, 175, 80, 0.9);
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: all 0.2s ease;
-        ">🔍</button>
-        <button onclick="toggleAllPanels()" title="Minimizar/Restaurar paneles" style="
-            background: rgba(33, 150, 243, 0.9);
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: all 0.2s ease;
-        ">📋</button>
-        <button onclick="resetMapView()" title="Resetear vista del mapa" style="
-            background: rgba(255, 152, 0, 0.9);
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: all 0.2s ease;
-        ">🏠</button>
-    `;
-    
-    document.body.appendChild(navControls);
-}
-
-// Función para ajustar la vista a todas las zonas
-function fitAllZonesInMap() {
-    if (!map || !currentZones || currentZones.length === 0) {
-        console.warn('⚠️ No hay zonas para ajustar la vista');
-        resetMapView();
-        return;
-    }
-    
-    const allCoords = [];
-    currentZones.forEach(zone => {
-        zone.addresses.forEach(addr => {
-            if (addr.lat && addr.lng) {
-                allCoords.push([addr.lat, addr.lng]);
-            }
-        });
-    });
-    
-    if (allCoords.length > 0) {
-        const group = new L.featureGroup();
-        allCoords.forEach(coord => {
-            L.marker(coord).addTo(group);
-        });
-        
-        map.fitBounds(group.getBounds().pad(0.1));
-        console.log(`🔍 Vista ajustada a ${allCoords.length} direcciones`);
-        
-        // Limpiar marcadores temporales
-        setTimeout(() => {
-            group.clearLayers();
-        }, 100);
-    } else {
-        resetMapView();
-    }
-}
-
-// Función para resetear vista del mapa
-function resetMapView() {
-    if (map) {
-        map.setView([39.4699, -0.3763], 6); // Vista de España
-        console.log('🏠 Vista del mapa reseteada');
-    }
-}
-
-// Función para ajustar el tamaño del mapa cuando se redimensiona la ventana
-function handleWindowResize() {
-    if (map) {
-        setTimeout(() => {
-            map.invalidateSize();
-            console.log('📐 Tamaño del mapa ajustado');
-        }, 100);
-    }
-}
-
-// Event listeners adicionales
-window.addEventListener('resize', handleWindowResize);
-
-// Atajos de teclado
-document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + H: Alternar paneles
-    if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
-        e.preventDefault();
-        toggleAllPanels();
-    }
-    
-    // Ctrl/Cmd + M: Resetear mapa
-    if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
-        e.preventDefault();
-        resetMapView();
-    }
-});
-
-// Agregar funciones globales para acceso desde HTML
-window.togglePanel = togglePanel;
-window.toggleAllPanels = toggleAllPanels;
-window.resetMapView = resetMapView;
-window.fitAllZonesInMap = fitAllZonesInMap;
-window.testFloatingInterface = testFloatingInterface;
-
-// Función de prueba para verificar la interfaz flotante
-function testFloatingInterface() {
-    console.log('🧪 === PRUEBA DE INTERFAZ FLOTANTE ===');
-    
-    const elements = {
-        map: document.getElementById('map'),
-        transparencyController: document.getElementById('transparency-controller'),
-        transparencySlider: document.getElementById('transparency-slider'),
-        excelContainer: document.getElementById('excel-container'),
-        manualContainer: document.getElementById('manual-container'),
-        outputContainer: document.getElementById('output-container'),
-        mapNavigation: document.getElementById('map-navigation'),
-        zoneIndicator: document.getElementById('zone-indicator')
-    };
-    
-    console.log('📋 Estado de elementos:');
-    Object.entries(elements).forEach(([key, el]) => {
-        const exists = !!el;
-        const visible = exists && el.style.display !== 'none';
-        console.log(`   - ${key}: ${exists ? '✅' : '❌'} ${exists ? (visible ? '👁️' : '👀') : ''}`);
-        
-        if (exists && key !== 'zoneIndicator') {
-            const styles = window.getComputedStyle(el);
-            const position = styles.position;
-            const zIndex = styles.zIndex;
-            console.log(`     Position: ${position}, Z-Index: ${zIndex}`);
-        }
-    });
-    
-    // Probar transparencia
-    if (elements.transparencySlider) {
-        const currentValue = elements.transparencySlider.value;
-        console.log(`🎭 Transparencia actual: ${currentValue}%`);
-    }
-    
-    // Verificar que el mapa sea fullscreen
-    if (elements.map) {
-        const rect = elements.map.getBoundingClientRect();
-        const isFullscreen = rect.width >= window.innerWidth * 0.9 && rect.height >= window.innerHeight * 0.9;
-        console.log(`🗺️ Mapa fullscreen: ${isFullscreen ? '✅' : '❌'} (${Math.round(rect.width)}x${Math.round(rect.height)})`);
-    }
-    
-    console.log('✅ Prueba completada');
-}
-
-console.log('🎭 Sistema de interfaz flotante inicializado');
-
-// ==========================================
 // SELECCIÓN MÚLTIPLE EN EL MAPA
 // ==========================================
 
@@ -4797,9 +4492,6 @@ function displayOnMap(zones) {
     // Guardar zonas actuales globalmente
     currentZones = zones;
     
-    // Actualizar indicador de zona
-    createZoneIndicator(zones.length);
-    
     // Limpiar mapa anterior
     map.eachLayer(layer => {
         if (layer !== map.tileLayer && !layer._url) {
@@ -5137,178 +4829,243 @@ function displayRouteOnMap(addresses) {
         }
     });
     
-    if (!addresses || addresses.length === 0) {
-        console.log('⚠️ No hay direcciones para mostrar en la ruta');
+    if (routeControl) {
+        map.removeControl(routeControl);
+    }
+    
+    if (addresses.length < 2) {
+        if (addresses.length === 1) {
+            L.marker([addresses[0].lat, addresses[0].lng])
+                .addTo(map)
+                .bindPopup(addresses[0].address);
+            map.setView([addresses[0].lat, addresses[0].lng], 13);
+        }
         return;
     }
     
-    console.log(`🗺️ Mostrando ruta con ${addresses.length} direcciones`);
+    // Crear waypoints para la ruta
+    const waypoints = addresses.map(addr => L.latLng(addr.lat, addr.lng));
     
-    // Agregar marcadores para cada dirección en la ruta
-    const routeMarkers = [];
-    addresses.forEach((addr, index) => {
-        if (addr.lat && addr.lng) {
-            const marker = L.marker([addr.lat, addr.lng])
-                .addTo(map)
-                .bindPopup(`
-                    <div style="font-family: Arial, sans-serif;">
-                        <h4 style="margin: 0 0 8px 0; color: #2196F3;">Parada ${index + 1}</h4>
-                        <p style="margin: 0; font-size: 12px;"><strong>${addr.address}</strong></p>
-                        <p style="margin: 4px 0 0 0; font-size: 10px; color: #666;">
-                            📍 ${addr.lat.toFixed(6)}, ${addr.lng.toFixed(6)}
-                        </p>
-                    </div>
-                `);
-            
-            routeMarkers.push(marker);
+    routeControl = L.Routing.control({
+        waypoints: waypoints,
+        routeWhileDragging: false,
+        addWaypoints: false,
+        createMarker: function(i, waypoint, n) {
+            const marker = L.marker(waypoint.latLng);
+            marker.bindPopup(`${i + 1}. ${addresses[i].address}`);
+            return marker;
         }
+    }).addTo(map);
+}
+
+// ==========================================
+// CONTROLES DE UI
+// ==========================================
+
+function showProgress(percentage, text) {
+    elements.progressContainer.style.display = 'block';
+    elements.progressFill.style.width = percentage + '%';
+    elements.progressPercentage.textContent = Math.round(percentage) + '%';
+    elements.progressText.textContent = text;
+}
+
+function hideProgress() {
+    elements.progressContainer.style.display = 'none';
+}
+
+function toggleMapVisibility() {
+    isMapMinimized = !isMapMinimized;
+    
+    if (isMapMinimized) {
+        elements.map.style.height = '100px';
+        elements.toggleMap.textContent = 'Maximizar Mapa';
+    } else {
+        elements.map.style.height = '400px';
+        elements.toggleMap.textContent = 'Minimizar Mapa';
+    }
+    
+    // Redimensionar el mapa después del cambio
+    setTimeout(() => {
+        if (map) {
+            map.invalidateSize();
+        }
+    }, 100);
+}
+
+// ==========================================
+// RECONOCIMIENTO DE VOZ
+// ==========================================
+
+function setupVoiceRecognition() {
+    const micButtons = document.querySelectorAll('.mic-button');
+    micButtons.forEach(setupVoiceRecognitionForElement);
+}
+
+function setupVoiceRecognitionForElement(micButton) {
+    if (!micButton) return;
+    
+    micButton.addEventListener('click', function() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            alert('Tu navegador no soporta reconocimiento de voz');
+            return;
+        }
+        
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        
+        recognition.lang = 'es-ES';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        
+        const targetInput = getTargetInput(micButton);
+        if (!targetInput) return;
+        
+        micButton.classList.add('listening');
+        micButton.textContent = '🔴';
+        
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            targetInput.value = transcript;
+        };
+        
+        recognition.onerror = function(event) {
+            console.error('Error de reconocimiento de voz:', event.error);
+            alert('Error en el reconocimiento de voz: ' + event.error);
+        };
+        
+        recognition.onend = function() {
+            micButton.classList.remove('listening');
+            micButton.textContent = '🎤';
+        };
+        
+        recognition.start();
+    });
+}
+
+function getTargetInput(micButton) {
+    const targetId = micButton.dataset.target;
+    const targetClass = micButton.dataset.targetClass;
+    
+    if (targetId) {
+        return document.getElementById(targetId);
+    } else if (targetClass) {
+        return micButton.parentElement.querySelector('.' + targetClass);
+    }
+    
+    return null;
+}
+
+// ==========================================
+// UTILIDADES
+// ==========================================
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function cleanAddressText(address) {
+    if (!address || address === null || address === undefined) {
+        console.warn(`⚠️ Dirección vacía o nula:`, address);
+        return '';
+    }
+    
+    let cleaned = address.toString().trim();
+    
+    // Si está completamente vacía después del trim
+    if (cleaned.length === 0) {
+        console.warn(`⚠️ Dirección vacía después del trim:`, address);
+        return '';
+    }
+    
+    // Corregir caracteres UTF-8 mal codificados comunes
+    const replacements = {
+        // Acentos básicos
+        'Ã¡': 'á', 'Ã ': 'à', 'Ã©': 'é', 'Ã¨': 'è', 'Ã­': 'í', 'Ã¬': 'ì',
+        'Ã³': 'ó', 'Ã²': 'ò', 'Ãº': 'ú', 'Ã¹': 'ù', 'Ã±': 'ñ', 'Ã§': 'ç',
+        // Codificación doble
+        'ÃƒÂ¡': 'á', 'ÃƒÂ©': 'é', 'ÃƒÂ­': 'í', 'ÃƒÂ³': 'ó', 'ÃƒÂº': 'ú', 'ÃƒÂ±': 'ñ',
+        // Específicos catalán
+        'Ã¯': 'ï', 'Ã¼': 'ü', 'Ã«': 'ë', 'Ã¤': 'ä', 'Ã¶': 'ö',
+        // Casos específicos problemáticos
+        'AragÃ³': 'Aragó', 'GrÃ cia': 'Gràcia', 'Sant GervÃ si': 'Sant Gervasi',
+        'MatarÃ³': 'Mataró', 'LleidÃ ': 'Lleida', 'TarragonÃ ': 'Tarragona'
+    };
+    
+    // Aplicar reemplazos
+    Object.entries(replacements).forEach(([wrong, correct]) => {
+        cleaned = cleaned.replace(new RegExp(wrong, 'g'), correct);
     });
     
-    // Ajustar vista para mostrar toda la ruta
-    if (routeMarkers.length > 0) {
-        const group = new L.featureGroup(routeMarkers);
-        map.fitBounds(group.getBounds().pad(0.1));
+    // Limpiar espacios múltiples, tabs, etc.
+    cleaned = cleaned.replace(/[\s\t\n\r]+/g, ' ').trim();
+    
+    // Eliminar caracteres raros al final/inicio
+    cleaned = cleaned.replace(/^[^\w\d]+|[^\w\d\s]+$/g, '');
+    
+    // Verificar que la dirección tenga contenido útil
+    if (cleaned.length < 5) {
+        console.warn(`⚠️ Dirección demasiado corta después de limpiar: "${cleaned}" (original: "${address}")`);
+        return '';
     }
+    
+    console.log(`🧹 Limpieza: "${address}" → "${cleaned}"`);
+    
+    return cleaned;
+}
+
+function simplifyAddress(address) {
+    if (!address) return '';
+    
+    let simplified = address.toString().trim();
+    
+    // Extraer solo los componentes más importantes
+    // Patrón: Calle/Carrer + Número + Ciudad + Código postal
+    const addressPattern = /^(.+?)\s+(\d+)\s+(.+?)\s+(\d{5})?\s*$/;
+    const match = simplified.match(addressPattern);
+    
+    if (match) {
+        const [, street, number, city] = match;
+        simplified = `${street.trim()} ${number}, ${city.trim()}`;
+    }
+    
+    // Limpiar palabras comunes que pueden causar problemas
+    simplified = simplified
+        .replace(/\s+(de|del|la|el|les|dels|las|los)\s+/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    
+    console.log(`Dirección simplificada: "${simplified}"`);
+    return simplified;
 }
 
 // ==========================================
-// INICIALIZACIÓN PRINCIPAL
+// INICIALIZACIÓN
 // ==========================================
 
+// Inicializar la aplicación cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 === INICIANDO APLICACIÓN ===');
+    console.log('🚀 Inicializando aplicación...');
     
-    try {
-        // Inicializar mapa
-        initializeMap();
-        console.log('✅ Mapa inicializado');
-        
-        // Inicializar controles de transparencia
-        initializeTransparencyController();
-        console.log('✅ Controles de transparencia inicializados');
-        
-        // Crear controles de navegación flotantes
-        createMapNavigationControls();
-        console.log('✅ Controles de navegación creados');
-        
-        // Inicializar elementos de la UI
-        elements.readExcel = document.getElementById('read-excel');
-        elements.processExcel = document.getElementById('process-excel');
-        elements.cancelProcess = document.getElementById('cancel-process');
-        elements.excelFile = document.getElementById('excel-file');
-        elements.zoneCount = document.getElementById('zone-count');
-        elements.maxAddressesPerZone = document.getElementById('max-addresses-per-zone');
-        elements.minAddressesPerZone = document.getElementById('min-addresses-per-zone');
-        elements.sortedAddresses = document.getElementById('sorted-addresses');
-        
-        // Verificar elementos críticos
-        const criticalElements = ['read-excel', 'excel-file', 'sorted-addresses', 'transparency-slider'];
-        const missing = criticalElements.filter(id => !document.getElementById(id));
-        
-        if (missing.length > 0) {
-            console.error('❌ Elementos críticos faltantes:', missing);
-            console.warn('💡 Algunos elementos no están disponibles, pero la app continuará');
-        }
-        
-        // Configurar event listeners
-        if (elements.readExcel) {
-            elements.readExcel.addEventListener('click', async function() {
-                const file = elements.excelFile.files[0];
-                if (!file) {
-                    alert('Por favor selecciona un archivo primero');
-                    return;
-                }
-                
-                try {
-                    console.log('📂 Leyendo archivo:', file.name);
-                    if (file.name.endsWith('.txt') || file.name.endsWith('.csv')) {
-                        await readTextFile(file);
-                    } else {
-                        await readExcelFile(file);
-                    }
-                } catch (error) {
-                    console.error('❌ Error al leer archivo:', error);
-                    alert('❌ Error al leer el archivo: ' + error.message);
-                }
-            });
-        }
-        
-        if (elements.processExcel) {
-            elements.processExcel.addEventListener('click', async function() {
-                try {
-                    await processExcelFile();
-                } catch (error) {
-                    console.error('❌ Error al procesar archivo:', error);
-                    alert('❌ Error al procesar el archivo: ' + error.message);
-                }
-            });
-        }
-        
-        if (elements.cancelProcess) {
-            elements.cancelProcess.addEventListener('click', function() {
-                // Ocultar contenedor de preview
-                const previewContainer = document.getElementById('preview-container');
-                if (previewContainer) {
-                    previewContainer.style.display = 'none';
-                }
-                
-                // Limpiar archivo seleccionado
-                if (elements.excelFile) {
-                    elements.excelFile.value = '';
-                }
-                
-                console.log('🚫 Proceso cancelado');
-            });
-        }
-        
-        // Configurar reconocimiento de voz
-        try {
-            setupVoiceRecognition();
-            console.log('✅ Reconocimiento de voz configurado');
-        } catch (error) {
-            console.warn('⚠️ Error configurando reconocimiento de voz:', error.message);
-        }
-        
-        // Inicializar editor de direcciones avanzado
-        try {
-            initializeAddressEditModal();
-            console.log('✅ Editor de direcciones inicializado');
-        } catch (error) {
-            console.warn('⚠️ Error inicializando editor de direcciones:', error.message);
-        }
-        
-        // Actualizar secciones para mostrar opción de crear nueva zona
-        try {
-            updateAddToZoneSection();
-            updateMapClickModeButton();
-            console.log('✅ Secciones de gestión actualizadas');
-        } catch (error) {
-            console.warn('⚠️ Error actualizando secciones:', error.message);
-        }
-        
-        console.log('🎉 === APLICACIÓN INICIADA EXITOSAMENTE ===');
-        console.log('💡 Para verificar la interfaz flotante, ejecuta: testFloatingInterface()');
-        
-        // Test automático de la interfaz flotante
-        setTimeout(() => {
-            if (window.testFloatingInterface) {
-                testFloatingInterface();
-            }
-        }, 1000);
-        
-    } catch (error) {
-        console.error('❌ Error durante la inicialización:', error);
-        alert('❌ Error al inicializar la aplicación: ' + error.message);
-    }
+    // Configurar elementos DOM
+    setupElements();
+    
+    // Configurar event listeners
+    attachEventListeners();
+    
+    // Configurar editor de zona
+    setupZoneEditor();
+    
+    // Configurar reconocimiento de voz
+    setupVoiceRecognition();
+    
+    // Inicializar editor de direcciones avanzado
+    initializeAddressEditModal();
+    
+    // Actualizar secciones para mostrar opción de crear nueva zona
+    updateAddToZoneSection();
+    updateMapClickModeButton();
+    
+    console.log('✅ Aplicación inicializada correctamente');
 });
 
-// Función para reinicializar si es necesario
-function reinitializeApp() {
-    console.log('🔄 Reinicializando aplicación...');
-    location.reload();
-}
-
-// Agregar función global para reinicialización
-window.reinitializeApp = reinitializeApp;
-
-console.log('📄 Script.js cargado completamente');
+console.log('Script de Ordenar Direcciones cargado correctamente');
